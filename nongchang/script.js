@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
         plots: Array(25).fill(null).map((_, i) => {
             const row = Math.floor(i / 5);
             const col = i % 5;
-            const isCenter = row >= 1 && row <= 3 && col >= 1 && col <= 3;
+            const isCenter = row >= 1 && row <= 2 && col >= 1 && col <= 3; // Initial 6 plots (2x3)
             return {
                 id: i,
                 status: 'empty',
@@ -74,11 +74,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Save/Load
     function saveGame() {
-        localStorage.setItem('nongchang_save_v2', JSON.stringify(state));
+        localStorage.setItem('nongchang_save_v3', JSON.stringify(state));
     }
 
     function loadGame() {
-        const saved = localStorage.getItem('nongchang_save_v2');
+        const saved = localStorage.getItem('nongchang_save_v3');
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
@@ -94,11 +94,9 @@ document.addEventListener('DOMContentLoaded', () => {
                      const newPlots = Array(25).fill(null).map((_, i) => {
                          const row = Math.floor(i / 5);
                          const col = i % 5;
-                         const isCenter = row >= 1 && row <= 3 && col >= 1 && col <= 3;
+                         const isCenter = row >= 1 && row <= 2 && col >= 1 && col <= 3;
                          return { id: i, status: 'empty', cropId: null, plantTime: 0, level: 1, unlocked: isCenter };
                      });
-                     // Try to preserve center 9
-                     parsed.plots.forEach((p, i) => { if(i < 9) newPlots[i] = p; });
                      state.plots = newPlots;
                 }
             } catch (e) { console.error("Save error", e); }
@@ -269,8 +267,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // ... (Existing Render Functions: renderGrid, updatePlotUI, renderShop, selectShopItem) ...
     // Note: Copied from previous step, ensuring integrity.
 
+    function getMaxPlots() {
+        // Base 6 + 1 every 3 levels
+        return 6 + Math.floor(state.level / 3);
+    }
+
     function renderGrid() {
         elements.farmGrid.innerHTML = '';
+        const ownedPlots = state.plots.filter(p => p.unlocked).length;
+        const maxPlots = getMaxPlots();
+
         state.plots.forEach((plot, index) => {
             const card = document.createElement('div');
             card.className = 'plot-card';
@@ -279,7 +285,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!plot.unlocked) {
                 card.classList.add('locked');
-                card.innerHTML = '<div class="lock-icon">🔒</div><div class="lock-text">点击解锁</div>';
+                if (ownedPlots < maxPlots) {
+                    card.innerHTML = '<div class="lock-icon">🔒</div><div class="lock-text">点击解锁</div>';
+                } else {
+                    const nextUnlockLevel = (Math.floor((ownedPlots - 6)) + 1) * 3;
+                    card.innerHTML = `<div class="lock-icon" style="opacity:0.5">🔒</div><div class="lock-text" style="color:#666">Lv.${nextUnlockLevel}<br>解锁</div>`;
+                    card.style.cursor = 'not-allowed';
+                }
                 elements.farmGrid.appendChild(card);
                 return;
             }
@@ -332,8 +344,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!card) return;
 
         if (!plot.unlocked) {
-             card.className = 'plot-card locked';
-             card.innerHTML = '<div class="lock-icon">🔒</div><div class="lock-text">点击解锁</div>';
+             // If status changed (unlocked -> locked, theoretically impossible, or just refresh lock text)
+             // Simpler to just re-render grid for lock state changes as it depends on global owned count
+             renderGrid();
              return;
         } else {
              if (card.classList.contains('locked')) {
@@ -422,13 +435,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getLandCost() {
         const ownedPlots = state.plots.filter(p => p.unlocked).length;
-        return Math.floor(LAND_COST_BASE * Math.pow(LAND_COST_MULTIPLIER, ownedPlots - 9));
+        // Cost based on owned plots beyond the initial 6
+        return Math.floor(LAND_COST_BASE * Math.pow(LAND_COST_MULTIPLIER, Math.max(0, ownedPlots - 6)));
     }
 
     function handlePlotClick(index) {
         const plot = state.plots[index];
         if (!plot.unlocked) {
-            buyLand(index);
+            const ownedPlots = state.plots.filter(p => p.unlocked).length;
+            const maxPlots = getMaxPlots();
+            if (ownedPlots < maxPlots) {
+                buyLand(index);
+            } else {
+                const nextUnlockLevel = (Math.floor((ownedPlots - 6)) + 1) * 3;
+                showToast(`等级不足！需达到 Lv.${nextUnlockLevel} 解锁更多土地`);
+            }
             return;
         }
         if (plot.status === 'empty') {
