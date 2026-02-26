@@ -3,15 +3,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const CROPS = {
         wheat: { id: 'wheat', name: '小麦', emoji: '🌾', seedEmoji: '🌱', cost: 10, sellPrice: 15, growthTime: 3000, exp: 2, minLevel: 1 },
         corn: { id: 'corn', name: '玉米', emoji: '🌽', seedEmoji: '🌱', cost: 20, sellPrice: 35, growthTime: 5000, exp: 4, minLevel: 2 },
-        carrot: { id: 'carrot', name: '胡萝卜', emoji: '🥕', seedEmoji: '🌱', cost: 30, sellPrice: 55, growthTime: 8000, exp: 6, minLevel: 3 }
+        carrot: { id: 'carrot', name: '胡萝卜', emoji: '🥕', seedEmoji: '🌱', cost: 30, sellPrice: 55, growthTime: 8000, exp: 6, minLevel: 3 },
+        potato: { id: 'potato', name: '土豆', emoji: '🥔', seedEmoji: '🌱', cost: 50, sellPrice: 90, growthTime: 12000, exp: 10, minLevel: 4 },
+        tomato: { id: 'tomato', name: '番茄', emoji: '🍅', seedEmoji: '🌱', cost: 100, sellPrice: 180, growthTime: 20000, exp: 15, minLevel: 5 },
+        strawberry: { id: 'strawberry', name: '草莓', emoji: '🍓', seedEmoji: '🌱', cost: 200, sellPrice: 380, growthTime: 45000, exp: 25, minLevel: 6 },
+        pumpkin: { id: 'pumpkin', name: '南瓜', emoji: '🎃', seedEmoji: '🌱', cost: 500, sellPrice: 1000, growthTime: 90000, exp: 50, minLevel: 8 },
+        sunflower: { id: 'sunflower', name: '向日葵', emoji: '🌻', seedEmoji: '🌱', cost: 1000, sellPrice: 2500, growthTime: 300000, exp: 100, minLevel: 10 }
     };
 
     const ACHIEVEMENTS = [
         { id: 'first_harvest', name: '初次收获', desc: '收获第一个作物', check: (s) => s.stats.cropsHarvested >= 1, reward: 50 },
         { id: 'novice_farmer', name: '新手农夫', desc: '收获 50 个作物', check: (s) => s.stats.cropsHarvested >= 50, reward: 200 },
-        { id: 'wealthy', name: '小有资产', desc: '累计获得 1000 金币', check: (s) => s.stats.totalGold >= 1000, reward: 500 },
+        { id: 'expert_farmer', name: '种植专家', desc: '收获 500 个作物', check: (s) => s.stats.cropsHarvested >= 500, reward: 1000 },
+        { id: 'wealthy', name: '小有资产', desc: '累计获得 1,000 金币', check: (s) => s.stats.totalGold >= 1000, reward: 500 },
+        { id: 'millionaire', name: '百万富翁', desc: '累计获得 10,000 金币', check: (s) => s.stats.totalGold >= 10000, reward: 5000 },
         { id: 'land_owner', name: '大地主', desc: '解锁 15 块土地', check: (s) => s.plots.filter(p => p.unlocked).length >= 15, reward: 1000 },
-        { id: 'master_level', name: '大师等级', desc: '达到等级 5', check: (s) => s.level >= 5, reward: 800 }
+        { id: 'master_level', name: '大师等级', desc: '达到等级 5', check: (s) => s.level >= 5, reward: 800 },
+        { id: 'grand_master', name: '传奇农场主', desc: '达到等级 10', check: (s) => s.level >= 10, reward: 2000 },
+        { id: 'ad_lover', name: '广告达人', desc: '观看 10 次广告', check: (s) => s.stats.adsWatched >= 10, reward: 500 }
     ];
 
     const LAND_COST_BASE = 100;
@@ -20,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Game State
     let state = {
         gold: 100,
+        startTime: Date.now(),
         level: 1,
         exp: 0,
         nextLevelExp: 100,
@@ -76,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Ensure stats object exists
                 if (!state.stats) state.stats = { cropsHarvested: 0, totalGold: 0, adsWatched: 0 };
                 if (!state.achievements) state.achievements = [];
+                if (!state.startTime) state.startTime = Date.now();
 
                 // Plot migration logic (simplified)
                 if (state.plots.length !== 25) {
@@ -125,15 +136,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Stats & Achievements
+    function formatTime(ms) {
+        const seconds = Math.floor(ms / 1000);
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        if (h > 0) return `${h}h ${m}m`;
+        return `${m}m ${s}s`;
+    }
+
     function renderStats() {
-        elements.statsTab.innerHTML = `
-            <div class="stats-list">
-                <p>🌾 收获作物: ${state.stats.cropsHarvested}</p>
-                <p>💰 累计金币: ${state.stats.totalGold}</p>
-                <p>📺 观看广告: ${state.stats.adsWatched}</p>
-                <p>🏞️ 拥有土地: ${state.plots.filter(p => p.unlocked).length} / 25</p>
-            </div>
-        `;
+        const playTime = formatTime(Date.now() - state.startTime);
+        const landCount = state.plots.filter(p => p.unlocked).length;
+
+        const statsData = [
+            { icon: '🌾', label: '收获作物', value: state.stats.cropsHarvested },
+            { icon: '💰', label: '累计金币', value: state.stats.totalGold },
+            { icon: '📺', label: '观看广告', value: state.stats.adsWatched },
+            { icon: '🏞️', label: '拥有土地', value: `${landCount} / 25` },
+            { icon: '⏳', label: '游玩时间', value: playTime },
+            { icon: '⭐', label: '当前等级', value: `Lv.${state.level}` }
+        ];
+
+        let html = '<div class="stats-list">';
+        statsData.forEach(item => {
+            html += `
+                <div class="stats-item">
+                    <div class="stats-icon">${item.icon}</div>
+                    <div class="stats-info">
+                        <div class="stats-label">${item.label}</div>
+                        <div class="stats-value">${item.value}</div>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        elements.statsTab.innerHTML = html;
     }
 
     function renderAchievements() {

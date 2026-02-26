@@ -111,7 +111,7 @@
             grid-template-rows: repeat(5, 1fr);
             gap: 4px;
             padding: 8px;
-            height: 50vh; /* Takes exactly half the viewport height */
+            height: 35vh; /* Reduced from 50vh */
             flex-shrink: 0;
             overflow: hidden; /* Prevent scrolling */
         }
@@ -126,7 +126,7 @@
             align-items: center;
             cursor: pointer;
             position: relative;
-            padding: 2px;
+            padding: 1px;
             transition: transform 0.1s, border-color 0.2s;
             height: 100%;
             width: 100%;
@@ -336,6 +336,44 @@
         .shop-cost {
             font-size: 0.75rem;
             color: #aaa;
+        }
+
+        /* Stats */
+        .stats-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .stats-item {
+            display: flex;
+            align-items: center;
+            background-color: var(--card-bg);
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .stats-icon {
+            font-size: 1.4rem;
+            margin-right: 12px;
+            width: 36px;
+            text-align: center;
+        }
+
+        .stats-info {
+            flex-grow: 1;
+        }
+
+        .stats-label {
+            font-size: 0.8rem;
+            color: #aaa;
+        }
+
+        .stats-value {
+            font-weight: bold;
+            font-size: 1rem;
+            color: var(--text-color);
         }
 
         /* Achievements */
