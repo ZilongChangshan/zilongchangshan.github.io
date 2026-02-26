@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
         exp: 0,
         nextLevelExp: 100,
         selectedCropId: 'wheat',
-        plots: Array(9).fill(null).map((_, i) => ({
+        plots: Array(25).fill(null).map((_, i) => ({
             id: i,
             status: 'empty', // empty, growing, ready
             cropId: null,

@@ -100,11 +100,12 @@ body {
 /* Farm Grid */
 .farm-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr);
-    gap: 10px;
-    padding: 15px;
-    flex-grow: 1; /* Pushes bottom panel down */
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(5, 1fr);
+    gap: 5px;
+    padding: 10px;
+    height: 50vh; /* Takes exactly half the viewport height */
+    flex-grow: 0;
     overflow: hidden; /* Prevent scrolling */
     min-height: 0; /* Allow flex item to shrink */
 }
@@ -207,6 +208,8 @@ body {
     padding: 0;
     display: flex;
     flex-direction: column;
+    flex-grow: 1; /* Takes the remaining space */
+    overflow: hidden;
 }
 
 .tabs {
@@ -233,8 +236,7 @@ body {
 
 .tab-content {
     padding: 15px;
-    min-height: 150px;
-    max-height: 250px;
+    flex-grow: 1; /* Allow content to fill available space in bottom panel */
     overflow-y: auto;
 }
 
