@@ -204,6 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Core Gameplay Modifications
     function harvestCrop(index) {
+        if (navigator.vibrate) navigator.vibrate(50);
         const plot = state.plots[index];
         const crop = CROPS[plot.cropId];
 
@@ -371,6 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function selectShopItem(id) {
+        if (navigator.vibrate) navigator.vibrate(10);
         state.selectedCropId = id;
         saveGame();
         const items = document.querySelectorAll('.shop-item');
@@ -423,6 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function plantCrop(index) {
         const crop = CROPS[state.selectedCropId];
         if (state.gold >= crop.cost) {
+            if (navigator.vibrate) navigator.vibrate(20);
             state.gold -= crop.cost;
             const plot = state.plots[index];
             plot.status = 'growing';
