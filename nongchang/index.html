@@ -111,8 +111,8 @@
         /* Farm Grid */
         .farm-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            grid-template-rows: repeat(5, 1fr);
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            grid-template-rows: repeat(5, minmax(0, 1fr));
             gap: 4px;
             padding: 8px;
             height: 35vh; /* Reduced from 50vh */
@@ -134,6 +134,7 @@
             transition: transform 0.1s, border-color 0.2s;
             height: 100%;
             width: 100%;
+            overflow: hidden;
         }
 
         .plot-card.locked {
@@ -429,30 +430,6 @@
             font-weight: bold;
         }
 
-        /* Ad Button */
-        .ad-btn {
-            width: 100%;
-            background-color: #fff;
-            color: #000;
-            border: none;
-            padding: 12px;
-            font-size: 0.9rem;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: auto;
-            flex-shrink: 0;
-        }
-
-        .ad-btn:hover {
-            background-color: #f0f0f0;
-        }
-
-        .ad-btn:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-            color: #666;
-        }
-
         /* Toast */
         .toast {
             position: fixed;
@@ -539,9 +516,6 @@
                     <p>暂无成就</p>
                 </div>
             </div>
-
-            <!-- Ad Button -->
-            <button class="ad-btn" id="btn-ad">📺 看广告领补贴</button>
         </div>
     </div>
 

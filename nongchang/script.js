@@ -19,8 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'millionaire', name: '百万富翁', desc: '累计获得 10,000 金币', check: (s) => s.stats.totalGold >= 10000, reward: 5000 },
         { id: 'land_owner', name: '大地主', desc: '解锁 15 块土地', check: (s) => s.plots.filter(p => p.unlocked).length >= 15, reward: 1000 },
         { id: 'master_level', name: '大师等级', desc: '达到等级 5', check: (s) => s.level >= 5, reward: 800 },
-        { id: 'grand_master', name: '传奇农场主', desc: '达到等级 10', check: (s) => s.level >= 10, reward: 2000 },
-        { id: 'ad_lover', name: '广告达人', desc: '观看 10 次广告', check: (s) => s.stats.adsWatched >= 10, reward: 500 }
+        { id: 'grand_master', name: '传奇农场主', desc: '达到等级 10', check: (s) => s.level >= 10, reward: 2000 }
     ];
 
     const LAND_COST_BASE = 100;
@@ -68,8 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tabPanes: document.querySelectorAll('.tab-pane'),
         toast: document.getElementById('message-toast'),
         statsTab: document.getElementById('stats-tab'),
-        achievementsTab: document.getElementById('achievements-tab'),
-        btnAd: document.getElementById('btn-ad')
+        achievementsTab: document.getElementById('achievements-tab')
     };
 
     // Save/Load
@@ -112,7 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAchievements();
         updateStatsUI();
         setupTabs();
-        setupAd();
         startLoop();
         selectShopItem(state.selectedCropId || 'wheat');
     }
@@ -150,7 +147,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const statsData = [
             { icon: '🌾', label: '收获作物', value: state.stats.cropsHarvested },
             { icon: '💰', label: '累计金币', value: state.stats.totalGold },
-            { icon: '📺', label: '观看广告', value: state.stats.adsWatched },
             { icon: '🏞️', label: '拥有土地', value: `${landCount} / 25` },
             { icon: '⏳', label: '游玩时间', value: playTime },
             { icon: '⭐', label: '当前等级', value: `Lv.${state.level}` }
@@ -211,31 +207,6 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStatsUI();
             saveGame();
         }
-    }
-
-    // Ad Feature
-    function setupAd() {
-        elements.btnAd.onclick = () => {
-            if (elements.btnAd.disabled) return;
-
-            elements.btnAd.disabled = true;
-            elements.btnAd.textContent = "📺 观看广告中... (3s)";
-
-            setTimeout(() => {
-                const reward = state.level * 50;
-                state.gold += reward;
-                state.stats.adsWatched++;
-                state.stats.totalGold += reward; // Count ad gold towards total? Sure.
-
-                showToast(`观看结束！获得 ${reward} 金币`);
-                updateStatsUI();
-                checkAchievements();
-                saveGame();
-
-                elements.btnAd.textContent = "看广告领补贴";
-                elements.btnAd.disabled = false;
-            }, 3000);
-        };
     }
 
     // Core Gameplay Modifications
