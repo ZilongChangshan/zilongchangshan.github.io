@@ -101,14 +101,16 @@ body {
 .farm-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
     gap: 10px;
     padding: 15px;
     flex-grow: 1; /* Pushes bottom panel down */
-    overflow-y: auto;
+    overflow: hidden; /* Prevent scrolling */
+    min-height: 0; /* Allow flex item to shrink */
 }
 
 .plot-card {
-    aspect-ratio: 1;
+    /* Remove aspect-ratio: 1 to allow filling height */
     background-color: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -118,8 +120,10 @@ body {
     align-items: center;
     cursor: pointer;
     position: relative;
-    padding: 10px;
+    padding: 5px; /* Reduced padding */
     transition: transform 0.1s, border-color 0.2s;
+    height: 100%; /* Fill the grid cell */
+    width: 100%;
 }
 
 .plot-card:active {
@@ -145,6 +149,10 @@ body {
 .crop-emoji {
     font-size: 2.5rem;
     margin-bottom: 5px;
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .status-text {
