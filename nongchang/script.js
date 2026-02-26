@@ -78,7 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
         toast: document.getElementById('message-toast'),
         statsTab: document.getElementById('stats-tab'),
         achievementsTab: document.getElementById('achievements-tab'),
-        harvestAllBtn: null // Will be created dynamically if needed
+        harvestAllBtn: null,
+        plantAllBtn: null
     };
 
     // UI State
@@ -128,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function init() {
         loadGame();
         checkOfflineProgress();
-        createHarvestAllButton();
+        setupControlButtons();
         renderGrid();
         renderShop();
         renderStats();
@@ -174,19 +175,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function createHarvestAllButton() {
-        // Get existing button or create if missing (though it should be in HTML now)
-        let btn = document.getElementById('harvest-all-btn');
-        if (!btn) {
-            btn = document.createElement('button');
-            btn.id = 'harvest-all-btn';
-            btn.className = 'harvest-all-btn';
-            btn.textContent = '一键收获';
-            document.querySelector('.control-bar') ? document.querySelector('.control-bar').appendChild(btn) : document.body.appendChild(btn);
+    function setupControlButtons() {
+        // Harvest All
+        let hBtn = document.getElementById('harvest-all-btn');
+        if (hBtn) {
+            hBtn.onclick = harvestAll;
+            elements.harvestAllBtn = hBtn;
         }
-        btn.onclick = harvestAll;
-        elements.harvestAllBtn = btn;
-        checkHarvestAllUnlock();
+
+        // Plant All
+        let pBtn = document.getElementById('plant-all-btn');
+        if (pBtn) {
+            pBtn.onclick = plantAll;
+            elements.plantAllBtn = pBtn;
+        }
+
+        checkControlButtonsUnlock();
     }
 
     // Tabs
@@ -360,6 +364,73 @@ document.addEventListener('DOMContentLoaded', () => {
             saveGame();
         } else {
             showToast("没有可收获的作物");
+        }
+    }
+
+    function plantAll() {
+        if (state.selectedItemType !== 'crop') {
+            showToast("请先选择要种植的种子 🌱");
+            return;
+        }
+
+        const crop = CROPS[state.selectedItemId];
+        if (!crop) return;
+
+        // Locked crop check
+        if (state.level < crop.minLevel) {
+            showToast(`等级不足，无法种植 ${crop.name}`);
+            return;
+        }
+
+        let plantedCount = 0;
+        let totalCost = 0;
+        let plotsToPlant = [];
+
+        // Identify plots
+        state.plots.forEach((plot, index) => {
+            if (plot.unlocked && plot.status === 'empty') {
+                plotsToPlant.push(index);
+            }
+        });
+
+        if (plotsToPlant.length === 0) {
+            showToast("没有空闲土地");
+            return;
+        }
+
+        // Calculate how many we can afford
+        const maxAffordable = Math.floor(state.gold / crop.cost);
+        const countToPlant = Math.min(plotsToPlant.length, maxAffordable);
+
+        if (countToPlant === 0) {
+            showToast("金币不足！");
+            return;
+        }
+
+        for (let i = 0; i < countToPlant; i++) {
+            const index = plotsToPlant[i];
+            const plot = state.plots[index];
+
+            state.gold -= crop.cost;
+            plot.status = 'growing';
+            plot.cropId = crop.id;
+            plot.plantTime = Date.now();
+
+            plantedCount++;
+            totalCost += crop.cost;
+
+            // Visuals
+            const card = elements.farmGrid.children[index];
+            // Don't float text for every single one if too many? Maybe just summary.
+            // Or minimal visual update
+            updatePlotUI(index);
+        }
+
+        if (plantedCount > 0) {
+            if (navigator.vibrate) navigator.vibrate(50);
+            showToast(`一键播种: ${plantedCount} 个 ${crop.name}, 花费 ${totalCost} 💰`);
+            updateStatsUI();
+            saveGame();
         }
     }
 
@@ -659,19 +730,14 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast(`🎉 升级了！当前等级 Lv.${state.level}`);
             renderShop();
             checkAchievements();
-            checkHarvestAllUnlock();
+            checkControlButtonsUnlock();
         }
     }
 
-    function checkHarvestAllUnlock() {
+    function checkControlButtonsUnlock() {
+        // Harvest All Unlock: Lv.5
         if (elements.harvestAllBtn) {
-            // Always show, but style differently if locked?
-            // Or keep hidden but lower requirement?
-            // User feedback "Why can't I see it?" suggests they want to see it always.
-            // Let's make it visible but disabled if < 5.
-
-            elements.harvestAllBtn.style.display = 'block';
-
+            elements.harvestAllBtn.style.display = 'flex'; // Use flex to center content
             if (state.level < 5) {
                 elements.harvestAllBtn.style.opacity = '0.5';
                 elements.harvestAllBtn.style.filter = 'grayscale(100%)';
@@ -684,6 +750,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 elements.harvestAllBtn.onclick = harvestAll;
             }
         }
+
+        // Plant All Unlock: Lv.8 (Let's make it slightly higher or same? Let's say Lv.5 for now to match)
+        // Or Lv.3? Let's stick to 5 for simplicity or maybe 3 for early helper.
+        // User didn't specify, but usually Plant All comes with Harvest All.
+        if (elements.plantAllBtn) {
+            elements.plantAllBtn.style.display = 'flex';
+             if (state.level < 5) {
+                elements.plantAllBtn.style.opacity = '0.5';
+                elements.plantAllBtn.style.filter = 'grayscale(100%)';
+                elements.plantAllBtn.onclick = () => {
+                    showToast("等级达到 Lv.5 解锁一键播种 🔒");
+                };
+            } else {
+                elements.plantAllBtn.style.opacity = '1';
+                elements.plantAllBtn.style.filter = 'none';
+                elements.plantAllBtn.onclick = plantAll;
+            }
+        }
     }
 
     function updateStatsUI() {
@@ -693,7 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const percentage = Math.min(100, (state.exp / state.nextLevelExp) * 100);
         elements.expFill.style.width = `${percentage}%`;
         elements.maxExp.textContent = state.nextLevelExp;
-        checkHarvestAllUnlock();
+        checkControlButtonsUnlock();
     }
 
     function showToast(msg) {
