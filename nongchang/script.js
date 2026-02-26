@@ -175,14 +175,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function createHarvestAllButton() {
-        // Create floating button for Harvest All
-        const btn = document.createElement('button');
-        btn.id = 'harvest-all-btn';
-        btn.className = 'harvest-all-btn';
-        btn.textContent = '一键收获';
+        // Get existing button or create if missing (though it should be in HTML now)
+        let btn = document.getElementById('harvest-all-btn');
+        if (!btn) {
+            btn = document.createElement('button');
+            btn.id = 'harvest-all-btn';
+            btn.className = 'harvest-all-btn';
+            btn.textContent = '一键收获';
+            document.querySelector('.control-bar') ? document.querySelector('.control-bar').appendChild(btn) : document.body.appendChild(btn);
+        }
         btn.onclick = harvestAll;
-        // Always create, visibility controlled by checkHarvestAllUnlock
-        document.body.appendChild(btn);
         elements.harvestAllBtn = btn;
         checkHarvestAllUnlock();
     }
