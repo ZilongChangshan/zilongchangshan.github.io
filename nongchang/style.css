@@ -1,191 +1,325 @@
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f0f8ff;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
+:root {
+    --bg-color: #121212;
+    --card-bg: #1e1e1e;
+    --border-color: #333;
+    --text-color: #fff;
+    --accent-color: #4CAF50;
+    --highlight-color: #fff;
+    --gold-color: #FFD700;
+    --progress-bg: #333;
+    --progress-fill: #fff;
+}
+
+* {
     margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.game-container {
-    background-color: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    width: 800px;
-    max-width: 100%;
-}
-
-header {
-    text-align: center;
-    margin-bottom: 20px;
-    border-bottom: 2px solid #eee;
-    padding-bottom: 10px;
-}
-
-.stats {
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    min-height: 100vh;
     display: flex;
-    justify-content: space-around;
-    font-size: 1.2em;
+    flex-direction: column;
+    align-items: center;
+}
+
+.app-container {
+    width: 100%;
+    max-width: 480px; /* Mobile app style width */
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: #000;
+}
+
+/* Header */
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background-color: #000;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.level-badge {
+    font-size: 1.2rem;
     font-weight: bold;
-    color: #333;
 }
 
-#farm-grid {
+.game-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-align: center;
+    flex-grow: 1;
+}
+
+.currency {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--gold-color);
+}
+
+/* Progress Bar */
+.progress-container {
+    padding: 5px 15px;
+    background-color: #000;
+    position: sticky;
+    top: 60px; /* Height of top-bar */
+    z-index: 99;
+}
+
+.progress-bar {
+    height: 8px;
+    background-color: var(--progress-bg);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--progress-fill);
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    text-align: center;
+    font-size: 0.8rem;
+    margin-top: 2px;
+    color: #888;
+}
+
+/* Farm Grid */
+.farm-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-gap: 10px;
-    margin: 20px 0;
-    min-height: 300px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 15px;
+    flex-grow: 1; /* Pushes bottom panel down */
+    overflow-y: auto;
 }
 
-.plot {
-    border: 2px dashed #ccc;
-    background-color: #f9f9f9;
-    height: 100px;
+.plot-card {
+    aspect-ratio: 1;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    transition: all 0.2s;
-    font-size: 0.9em;
+    position: relative;
+    padding: 10px;
+    transition: transform 0.1s, border-color 0.2s;
+}
+
+.plot-card:active {
+    transform: scale(0.98);
+}
+
+.plot-card.selected {
+    border-color: var(--highlight-color);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+.plot-level {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    font-size: 0.7rem;
+    background-color: rgba(0,0,0,0.5);
+    padding: 2px 4px;
+    border-radius: 3px;
+    color: #aaa;
+}
+
+.crop-emoji {
+    font-size: 2.5rem;
+    margin-bottom: 5px;
+}
+
+.status-text {
+    font-size: 0.8rem;
+    color: #aaa;
+    margin-top: 5px;
     text-align: center;
-    white-space: pre-wrap;
-    position: relative; /* For floating msg */
+}
+
+/* Plot Progress Bar */
+.plot-progress-bar {
+    width: 80%;
+    height: 4px;
+    background-color: var(--progress-bg);
+    border-radius: 2px;
+    margin-top: 5px;
     overflow: hidden;
 }
 
-.plot:hover {
-    border-color: #999;
-    transform: translateY(-2px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.plot-progress-fill {
+    height: 100%;
+    background-color: var(--progress-fill);
+    width: 0%;
+    transition: width 0.5s linear; /* Smooth fill */
 }
 
-.plot span {
-    pointer-events: none; /* Let clicks pass through text */
-    z-index: 1;
-}
-
-.controls {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin-top: 20px;
-}
-
-button {
-    padding: 10px 20px;
-    font-size: 1em;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    background-color: #4CAF50;
-    color: white;
-    transition: background-color 0.2s;
-}
-
-button:hover {
-    background-color: #45a049;
-}
-
-button.active {
-    background-color: #2E7D32;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
-}
-
-#message-area {
-    margin-top: 15px;
-    height: 30px;
-    text-align: center;
-    color: #555;
-    font-style: italic;
-}
-
-/* Floating Message */
-.floating-msg {
+/* Floating Text Animation */
+.floating-text {
     position: absolute;
-    top: -20px;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
-    background-color: rgba(0,0,0,0.7);
-    color: white;
-    padding: 2px 5px;
-    border-radius: 3px;
-    font-size: 0.8em;
-    opacity: 0;
-    transition: opacity 0.5s, top 0.5s;
+    transform: translate(-50%, -50%);
+    color: var(--gold-color);
+    font-weight: bold;
+    font-size: 1.2rem;
+    animation: floatUp 1s ease-out forwards;
     pointer-events: none;
+    text-shadow: 1px 1px 2px #000;
     z-index: 10;
 }
 
-/* Modal Styles */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0,0,0,0.4);
+@keyframes floatUp {
+    0% { opacity: 1; transform: translate(-50%, -50%); }
+    100% { opacity: 0; transform: translate(-50%, -150%); }
 }
 
-.modal.hidden {
+
+/* Bottom Panel */
+.bottom-panel {
+    background-color: #111;
+    border-top: 1px solid var(--border-color);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #888;
+    padding: 15px;
+    font-size: 1rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+}
+
+.tab-btn.active {
+    color: var(--text-color);
+    border-bottom-color: var(--text-color);
+    font-weight: bold;
+}
+
+.tab-content {
+    padding: 15px;
+    min-height: 150px;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.tab-pane {
     display: none;
 }
 
-.modal:not(.hidden) {
+.tab-pane.active {
     display: block;
 }
 
-.modal-content {
-    background-color: #fefefe;
-    margin: 15% auto;
-    padding: 20px;
-    border: 1px solid #888;
-    width: 80%;
-    max-width: 500px;
-    border-radius: 8px;
-    position: relative;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-}
-
-.close-btn {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-.close-btn:hover,
-.close-btn:focus {
-    color: black;
-    text-decoration: none;
-    cursor: pointer;
+/* Shop Items */
+.shop-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .shop-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 15px;
-    border-bottom: 1px solid #eee;
+    background-color: var(--card-bg);
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid transparent;
 }
 
-.shop-item:last-child {
-    border-bottom: none;
+.shop-item.selected {
+    border-color: var(--accent-color);
+    background-color: #2e3b2e;
 }
 
-.shop-item button {
-    background-color: #008CBA;
-    padding: 8px 15px;
-}
-
-.shop-item button:disabled {
-    background-color: #ccc;
+.shop-item.locked {
+    opacity: 0.5;
     cursor: not-allowed;
+}
+
+.shop-icon {
+    font-size: 1.5rem;
+    margin-right: 15px;
+    width: 40px;
+    text-align: center;
+}
+
+.shop-info {
+    flex-grow: 1;
+}
+
+.shop-name {
+    font-weight: bold;
+    display: block;
+}
+
+.shop-cost {
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+/* Ad Button */
+.ad-btn {
+    width: 100%;
+    background-color: #fff;
+    color: #000;
+    border: none;
+    padding: 15px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: auto;
+}
+
+.ad-btn:hover {
+    background-color: #f0f0f0;
+}
+
+/* Toast */
+.toast {
+    position: fixed;
+    bottom: 80px; /* Above bottom panel */
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+.toast.show {
+    opacity: 1;
 }
