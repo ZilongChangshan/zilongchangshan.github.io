@@ -74,11 +74,15 @@ document.addEventListener('DOMContentLoaded', () => {
         shopItems: document.getElementById('shop-items'),
         tabs: document.querySelectorAll('.tab-btn'),
         tabPanes: document.querySelectorAll('.tab-pane'),
+        shopTabs: document.querySelectorAll('.secondary-tab-btn'),
         toast: document.getElementById('message-toast'),
         statsTab: document.getElementById('stats-tab'),
         achievementsTab: document.getElementById('achievements-tab'),
         harvestAllBtn: null // Will be created dynamically if needed
     };
+
+    // UI State
+    let currentShopTab = 'seeds'; // 'seeds' or 'items'
 
     // Save/Load
     function saveGame() {
@@ -131,11 +135,14 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAchievements();
         updateStatsUI();
         setupTabs();
+        setupShopTabs();
         startLoop();
 
         // Select initial item
         const initialId = state.selectedItemId || 'wheat';
         const type = CROPS[initialId] ? 'crop' : 'item';
+        // Auto switch tab if item selected
+        if (type === 'item') switchShopTab('items');
         selectShopItem(initialId, type);
     }
 
@@ -174,9 +181,10 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.className = 'harvest-all-btn';
         btn.textContent = '一键收获';
         btn.onclick = harvestAll;
-        btn.style.display = 'none'; // Hidden by default
+        // Always create, visibility controlled by checkHarvestAllUnlock
         document.body.appendChild(btn);
         elements.harvestAllBtn = btn;
+        checkHarvestAllUnlock();
     }
 
     // Tabs
@@ -193,6 +201,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (tabName === 'achievements') renderAchievements();
             });
         });
+    }
+
+    function setupShopTabs() {
+        elements.shopTabs.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabName = btn.dataset.shopTab;
+                switchShopTab(tabName);
+            });
+        });
+    }
+
+    function switchShopTab(tabName) {
+        currentShopTab = tabName;
+        elements.shopTabs.forEach(b => {
+            if (b.dataset.shopTab === tabName) b.classList.add('active');
+            else b.classList.remove('active');
+        });
+        renderShop();
     }
 
     // Stats & Achievements
@@ -455,28 +481,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderShop() {
         elements.shopItems.innerHTML = '';
 
-        // Render Crops
-        const cropHeader = document.createElement('div');
-        cropHeader.className = 'shop-section-header';
-        cropHeader.textContent = '种子';
-        elements.shopItems.appendChild(cropHeader);
-
-        Object.values(CROPS).forEach(crop => {
-            const item = createShopItemElement(crop, 'crop');
-            elements.shopItems.appendChild(item);
-        });
-
-        // Render Items
-        const itemHeader = document.createElement('div');
-        itemHeader.className = 'shop-section-header';
-        itemHeader.textContent = '道具';
-        itemHeader.style.marginTop = '15px';
-        elements.shopItems.appendChild(itemHeader);
-
-        Object.values(ITEMS).forEach(itm => {
-            const item = createShopItemElement(itm, 'item');
-            elements.shopItems.appendChild(item);
-        });
+        if (currentShopTab === 'seeds') {
+            Object.values(CROPS).forEach(crop => {
+                const item = createShopItemElement(crop, 'crop');
+                elements.shopItems.appendChild(item);
+            });
+        } else if (currentShopTab === 'items') {
+            Object.values(ITEMS).forEach(itm => {
+                const item = createShopItemElement(itm, 'item');
+                elements.shopItems.appendChild(item);
+            });
+        }
     }
 
     function createShopItemElement(obj, type) {
@@ -648,10 +663,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function checkHarvestAllUnlock() {
         if (elements.harvestAllBtn) {
-            if (state.level >= 5) {
-                elements.harvestAllBtn.style.display = 'block';
+            // Always show, but style differently if locked?
+            // Or keep hidden but lower requirement?
+            // User feedback "Why can't I see it?" suggests they want to see it always.
+            // Let's make it visible but disabled if < 5.
+
+            elements.harvestAllBtn.style.display = 'block';
+
+            if (state.level < 5) {
+                elements.harvestAllBtn.style.opacity = '0.5';
+                elements.harvestAllBtn.style.filter = 'grayscale(100%)';
+                elements.harvestAllBtn.onclick = () => {
+                    showToast("等级达到 Lv.5 解锁一键收获 🔒");
+                };
             } else {
-                elements.harvestAllBtn.style.display = 'none';
+                elements.harvestAllBtn.style.opacity = '1';
+                elements.harvestAllBtn.style.filter = 'none';
+                elements.harvestAllBtn.onclick = harvestAll;
             }
         }
     }
