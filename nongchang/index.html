@@ -452,6 +452,43 @@
             opacity: 1;
         }
 
+        /* Harvest All Button */
+        .harvest-all-btn {
+            position: fixed;
+            bottom: 150px; /* Above the bottom panel */
+            right: 20px;
+            background-color: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 50px;
+            padding: 10px 20px;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            z-index: 90;
+            display: none; /* Controlled by JS */
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .harvest-all-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Shop Headers */
+        .shop-section-header {
+            font-size: 0.85rem;
+            color: #888;
+            margin: 5px 0;
+            padding-left: 5px;
+            border-left: 3px solid var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
         /* Scrollbar styling */
         ::-webkit-scrollbar {
             width: 4px;

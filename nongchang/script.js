@@ -8,7 +8,13 @@ document.addEventListener('DOMContentLoaded', () => {
         tomato: { id: 'tomato', name: '番茄', emoji: '🍅', seedEmoji: '🌱', cost: 100, sellPrice: 180, growthTime: 20000, exp: 15, minLevel: 5 },
         strawberry: { id: 'strawberry', name: '草莓', emoji: '🍓', seedEmoji: '🌱', cost: 200, sellPrice: 380, growthTime: 45000, exp: 25, minLevel: 6 },
         pumpkin: { id: 'pumpkin', name: '南瓜', emoji: '🎃', seedEmoji: '🌱', cost: 500, sellPrice: 1000, growthTime: 90000, exp: 50, minLevel: 8 },
-        sunflower: { id: 'sunflower', name: '向日葵', emoji: '🌻', seedEmoji: '🌱', cost: 1000, sellPrice: 2500, growthTime: 300000, exp: 100, minLevel: 10 }
+        sunflower: { id: 'sunflower', name: '向日葵', emoji: '🌻', seedEmoji: '🌱', cost: 1000, sellPrice: 2500, growthTime: 300000, exp: 100, minLevel: 10 },
+        grapes: { id: 'grapes', name: '葡萄', emoji: '🍇', seedEmoji: '🌱', cost: 2000, sellPrice: 4500, growthTime: 120000, exp: 80, minLevel: 12 },
+        melon: { id: 'melon', name: '甜瓜', emoji: '🍈', seedEmoji: '🌱', cost: 5000, sellPrice: 12000, growthTime: 300000, exp: 200, minLevel: 15 }
+    };
+
+    const ITEMS = {
+        fertilizer: { id: 'fertilizer', name: '强力化肥', emoji: '⚡', cost: 50, desc: '立刻成熟', type: 'item' }
     };
 
     const ACHIEVEMENTS = [
@@ -24,15 +30,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const LAND_COST_BASE = 100;
     const LAND_COST_MULTIPLIER = 1.3;
+    const GAME_VERSION = "2026.02.26.1";
 
     // Game State
     let state = {
         gold: 100,
         startTime: Date.now(),
+        lastSaveTime: Date.now(),
         level: 1,
         exp: 0,
         nextLevelExp: 100,
-        selectedCropId: 'wheat',
+        selectedItemId: 'wheat', // Renamed from selectedCropId, keeps backwards compatibility logic below
+        selectedItemType: 'crop', // 'crop' or 'item'
         stats: {
             cropsHarvested: 0,
             totalGold: 0,
@@ -67,11 +76,13 @@ document.addEventListener('DOMContentLoaded', () => {
         tabPanes: document.querySelectorAll('.tab-pane'),
         toast: document.getElementById('message-toast'),
         statsTab: document.getElementById('stats-tab'),
-        achievementsTab: document.getElementById('achievements-tab')
+        achievementsTab: document.getElementById('achievements-tab'),
+        harvestAllBtn: null // Will be created dynamically if needed
     };
 
     // Save/Load
     function saveGame() {
+        state.lastSaveTime = Date.now();
         localStorage.setItem('nongchang_save_v3', JSON.stringify(state));
     }
 
@@ -80,21 +91,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
+                // Migration: selectedCropId -> selectedItemId
+                if (parsed.selectedCropId && !parsed.selectedItemId) {
+                    parsed.selectedItemId = parsed.selectedCropId;
+                    parsed.selectedItemType = 'crop';
+                    delete parsed.selectedCropId;
+                }
+
                 state = { ...state, ...parsed };
-                // Ensure stats object exists
+                // Ensure defaults
+                if (!state.selectedItemType) state.selectedItemType = 'crop';
                 if (!state.stats) state.stats = { cropsHarvested: 0, totalGold: 0, adsWatched: 0 };
                 if (!state.achievements) state.achievements = [];
                 if (!state.startTime) state.startTime = Date.now();
+                if (!state.lastSaveTime) state.lastSaveTime = Date.now();
 
-                // Plot migration logic (simplified)
                 if (state.plots.length !== 25) {
-                    // Reset if mismatch for now, or use migration logic from previous step
                      const newPlots = Array(25).fill(null).map((_, i) => {
                          const row = Math.floor(i / 5);
                          const col = i % 5;
                          const isCenter = row >= 1 && row <= 2 && col >= 1 && col <= 3;
                          return { id: i, status: 'empty', cropId: null, plantTime: 0, level: 1, unlocked: isCenter };
                      });
+                     // Try to migrate old plots if possible, or just reset
                      state.plots = newPlots;
                 }
             } catch (e) { console.error("Save error", e); }
@@ -104,6 +123,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialization
     function init() {
         loadGame();
+        checkOfflineProgress();
+        createHarvestAllButton();
         renderGrid();
         renderShop();
         renderStats();
@@ -111,7 +132,51 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatsUI();
         setupTabs();
         startLoop();
-        selectShopItem(state.selectedCropId || 'wheat');
+
+        // Select initial item
+        const initialId = state.selectedItemId || 'wheat';
+        const type = CROPS[initialId] ? 'crop' : 'item';
+        selectShopItem(initialId, type);
+    }
+
+    function checkOfflineProgress() {
+        const now = Date.now();
+        let readyCount = 0;
+
+        // Check crops that finished while we were away
+        // Logic: if it was 'growing' in save, and now it is ready (time passed > growthTime)
+        // Wait, if it was already 'ready' in save, we don't count it as "newly ready".
+        // But we don't store "wasReadyAtSave". We rely on status.
+        // If status is 'growing', and now it is ready, it finished offline.
+
+        state.plots.forEach(plot => {
+            if (plot.status === 'growing') {
+                const crop = CROPS[plot.cropId];
+                if (crop && (now - plot.plantTime >= crop.growthTime)) {
+                    readyCount++;
+                    // We don't change status here, the loop or render will handle it visually,
+                    // but functionally it's ready.
+                }
+            }
+        });
+
+        if (readyCount > 0) {
+            setTimeout(() => {
+                showToast(`欢迎回来！离线期间有 ${readyCount} 个作物成熟了 🌾`);
+            }, 500);
+        }
+    }
+
+    function createHarvestAllButton() {
+        // Create floating button for Harvest All
+        const btn = document.createElement('button');
+        btn.id = 'harvest-all-btn';
+        btn.className = 'harvest-all-btn';
+        btn.textContent = '一键收获';
+        btn.onclick = harvestAll;
+        btn.style.display = 'none'; // Hidden by default
+        document.body.appendChild(btn);
+        elements.harvestAllBtn = btn;
     }
 
     // Tabs
@@ -149,7 +214,8 @@ document.addEventListener('DOMContentLoaded', () => {
             { icon: '💰', label: '累计金币', value: state.stats.totalGold },
             { icon: '🏞️', label: '拥有土地', value: `${landCount} / 25` },
             { icon: '⏳', label: '游玩时间', value: playTime },
-            { icon: '⭐', label: '当前等级', value: `Lv.${state.level}` }
+            { icon: '⭐', label: '当前等级', value: `Lv.${state.level}` },
+            { icon: 'ℹ️', label: '游戏版本', value: GAME_VERSION }
         ];
 
         let html = '<div class="stats-list">';
@@ -235,8 +301,39 @@ document.addEventListener('DOMContentLoaded', () => {
         saveGame();
     }
 
-    // ... (Existing Render Functions: renderGrid, updatePlotUI, renderShop, selectShopItem) ...
-    // Note: Copied from previous step, ensuring integrity.
+    function harvestAll() {
+        let harvestedCount = 0;
+        let totalGain = 0;
+
+        state.plots.forEach((plot, index) => {
+            if (plot.unlocked && plot.status === 'ready') {
+                const crop = CROPS[plot.cropId];
+                state.gold += crop.sellPrice;
+                state.exp += crop.exp;
+                state.stats.cropsHarvested++;
+                state.stats.totalGold += crop.sellPrice;
+                totalGain += crop.sellPrice;
+
+                plot.status = 'empty';
+                plot.cropId = null;
+                plot.plantTime = 0;
+
+                updatePlotUI(index);
+                harvestedCount++;
+            }
+        });
+
+        if (harvestedCount > 0) {
+            if (navigator.vibrate) navigator.vibrate(100);
+            showToast(`一键收获: ${harvestedCount} 个作物, 获得 ${totalGain} 💰`);
+            checkLevelUp();
+            checkAchievements();
+            updateStatsUI();
+            saveGame();
+        } else {
+            showToast("没有可收获的作物");
+        }
+    }
 
     function getMaxPlots() {
         // Base 6 + 1 every 3 levels
@@ -290,11 +387,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 progressBar.style.display = 'none';
             } else if (plot.status === 'growing') {
                 const crop = CROPS[plot.cropId];
-                emojiDiv.textContent = crop.seedEmoji;
+                emojiDiv.textContent = crop ? crop.seedEmoji : '🌱';
                 statusText.textContent = '生长中...';
             } else if (plot.status === 'ready') {
                 const crop = CROPS[plot.cropId];
-                emojiDiv.textContent = crop.emoji;
+                emojiDiv.textContent = crop ? crop.emoji : '❓';
                 statusText.textContent = '点击收获';
                 progressFill.style.width = '100%';
                 progressBar.style.display = 'none';
@@ -315,13 +412,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!card) return;
 
         if (!plot.unlocked) {
-             // If status changed (unlocked -> locked, theoretically impossible, or just refresh lock text)
-             // Simpler to just re-render grid for lock state changes as it depends on global owned count
              renderGrid();
              return;
         } else {
              if (card.classList.contains('locked')) {
-                 renderGrid(); // Re-render if state changed from locked
+                 renderGrid();
                  return;
              }
         }
@@ -339,7 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
             card.style.borderColor = '#333';
         } else if (plot.status === 'growing') {
             const crop = CROPS[plot.cropId];
-            emojiDiv.textContent = crop.seedEmoji;
+            emojiDiv.textContent = crop ? crop.seedEmoji : '🌱';
             statusText.textContent = '生长中...';
             progressBar.style.display = 'block';
 
@@ -349,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } else if (plot.status === 'ready') {
             const crop = CROPS[plot.cropId];
-            emojiDiv.textContent = crop.emoji;
+            emojiDiv.textContent = crop ? crop.emoji : '❓';
             statusText.textContent = '点击收获';
             statusText.style.color = '#4CAF50';
             progressBar.style.display = 'none';
@@ -359,54 +454,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderShop() {
         elements.shopItems.innerHTML = '';
+
+        // Render Crops
+        const cropHeader = document.createElement('div');
+        cropHeader.className = 'shop-section-header';
+        cropHeader.textContent = '种子';
+        elements.shopItems.appendChild(cropHeader);
+
         Object.values(CROPS).forEach(crop => {
-            const item = document.createElement('div');
-            item.className = 'shop-item';
-            item.dataset.id = crop.id;
+            const item = createShopItemElement(crop, 'crop');
+            elements.shopItems.appendChild(item);
+        });
 
-            const isLocked = state.level < crop.minLevel;
-            if (isLocked) item.classList.add('locked');
-            if (state.selectedCropId === crop.id) item.classList.add('selected');
+        // Render Items
+        const itemHeader = document.createElement('div');
+        itemHeader.className = 'shop-section-header';
+        itemHeader.textContent = '道具';
+        itemHeader.style.marginTop = '15px';
+        elements.shopItems.appendChild(itemHeader);
 
-            item.onclick = () => {
-                if (!isLocked) selectShopItem(crop.id);
-            };
-
-            const icon = document.createElement('div');
-            icon.className = 'shop-icon';
-            icon.textContent = crop.emoji;
-
-            const info = document.createElement('div');
-            info.className = 'shop-info';
-            const name = document.createElement('span');
-            name.className = 'shop-name';
-            name.textContent = isLocked ? `??? (Lv.${crop.minLevel})` : crop.name;
-            const cost = document.createElement('div');
-            cost.className = 'shop-cost';
-            cost.textContent = `💰 ${crop.cost}  ⏳ ${crop.growthTime/1000}s`;
-
-            info.appendChild(name);
-            info.appendChild(cost);
-            item.appendChild(icon);
-            item.appendChild(info);
+        Object.values(ITEMS).forEach(itm => {
+            const item = createShopItemElement(itm, 'item');
             elements.shopItems.appendChild(item);
         });
     }
 
-    function selectShopItem(id) {
+    function createShopItemElement(obj, type) {
+        const item = document.createElement('div');
+        item.className = 'shop-item';
+        item.dataset.id = obj.id;
+        item.dataset.type = type;
+
+        const isSelected = state.selectedItemId === obj.id && state.selectedItemType === type;
+        if (isSelected) item.classList.add('selected');
+
+        let isLocked = false;
+        if (type === 'crop') {
+            isLocked = state.level < obj.minLevel;
+            if (isLocked) item.classList.add('locked');
+        }
+
+        item.onclick = () => {
+            if (!isLocked) selectShopItem(obj.id, type);
+        };
+
+        const icon = document.createElement('div');
+        icon.className = 'shop-icon';
+        icon.textContent = obj.emoji;
+
+        const info = document.createElement('div');
+        info.className = 'shop-info';
+        const name = document.createElement('span');
+        name.className = 'shop-name';
+
+        if (type === 'crop') {
+            name.textContent = isLocked ? `??? (Lv.${obj.minLevel})` : obj.name;
+            const cost = document.createElement('div');
+            cost.className = 'shop-cost';
+            cost.textContent = `💰 ${obj.cost}  ⏳ ${obj.growthTime/1000}s`;
+            info.appendChild(name);
+            info.appendChild(cost);
+        } else {
+            name.textContent = obj.name;
+            const cost = document.createElement('div');
+            cost.className = 'shop-cost';
+            cost.textContent = `💰 ${obj.cost}  ${obj.desc}`;
+            info.appendChild(name);
+            info.appendChild(cost);
+        }
+
+        item.appendChild(icon);
+        item.appendChild(info);
+        return item;
+    }
+
+    function selectShopItem(id, type) {
         if (navigator.vibrate) navigator.vibrate(10);
-        state.selectedCropId = id;
+        state.selectedItemId = id;
+        state.selectedItemType = type;
         saveGame();
         const items = document.querySelectorAll('.shop-item');
         items.forEach(item => {
-            if (item.dataset.id === id) item.classList.add('selected');
+            if (item.dataset.id === id && item.dataset.type === type) item.classList.add('selected');
             else item.classList.remove('selected');
         });
     }
 
     function getLandCost() {
         const ownedPlots = state.plots.filter(p => p.unlocked).length;
-        // Cost based on owned plots beyond the initial 6
         return Math.floor(LAND_COST_BASE * Math.pow(LAND_COST_MULTIPLIER, Math.max(0, ownedPlots - 6)));
     }
 
@@ -423,27 +558,56 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
+
         if (plot.status === 'empty') {
-            plantCrop(index);
+            if (state.selectedItemType === 'crop') {
+                plantCrop(index);
+            } else {
+                showToast("请选择种子进行种植 🌱");
+            }
         } else if (plot.status === 'ready') {
             harvestCrop(index);
         } else if (plot.status === 'growing') {
+            if (state.selectedItemType === 'item' && state.selectedItemId === 'fertilizer') {
+                useFertilizer(index);
+            } else {
+                const crop = CROPS[plot.cropId];
+                const remaining = Math.ceil((crop.growthTime - (Date.now() - plot.plantTime)) / 1000);
+                showToast(`还需 ${remaining} 秒成熟 (使用化肥加速?)`);
+            }
+        }
+    }
+
+    function useFertilizer(index) {
+        const item = ITEMS['fertilizer'];
+        if (state.gold >= item.cost) {
+            if (navigator.vibrate) navigator.vibrate(20);
+            state.gold -= item.cost;
+
+            const plot = state.plots[index];
+            // Instant grow: set plantTime to satisfy growthTime
             const crop = CROPS[plot.cropId];
-            const remaining = Math.ceil((crop.growthTime - (Date.now() - plot.plantTime)) / 1000);
-            showToast(`还需 ${remaining} 秒成熟`);
+            plot.plantTime = Date.now() - crop.growthTime - 1000; // Force ready
+            plot.status = 'ready';
+
+            showFloatingText(index, `⚡加速!`, 'yellow');
+            updateStatsUI();
+            updatePlotUI(index);
+            saveGame();
+        } else {
+            showToast("金币不足！需要 💰" + item.cost);
         }
     }
 
     function buyLand(index) {
         const cost = getLandCost();
-        // Check adjacency (optional, but good for gameplay) - simplifying to allow any
         if (confirm(`解锁这块土地需要 💰 ${cost}，确定购买吗？`)) {
             if (state.gold >= cost) {
                 state.gold -= cost;
                 state.plots[index].unlocked = true;
                 showToast("🎉 土地解锁成功！");
                 updateStatsUI();
-                checkAchievements(); // Check "Land Owner"
+                checkAchievements();
                 updatePlotUI(index);
                 saveGame();
             } else {
@@ -453,7 +617,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function plantCrop(index) {
-        const crop = CROPS[state.selectedCropId];
+        const crop = CROPS[state.selectedItemId];
         if (state.gold >= crop.cost) {
             if (navigator.vibrate) navigator.vibrate(20);
             state.gold -= crop.cost;
@@ -466,7 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updatePlotUI(index);
             saveGame();
         } else {
-            showToast("金币不足！看广告赚点吧？");
+            showToast("金币不足！");
         }
     }
 
@@ -478,6 +642,17 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast(`🎉 升级了！当前等级 Lv.${state.level}`);
             renderShop();
             checkAchievements();
+            checkHarvestAllUnlock();
+        }
+    }
+
+    function checkHarvestAllUnlock() {
+        if (elements.harvestAllBtn) {
+            if (state.level >= 5) {
+                elements.harvestAllBtn.style.display = 'block';
+            } else {
+                elements.harvestAllBtn.style.display = 'none';
+            }
         }
     }
 
@@ -488,6 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const percentage = Math.min(100, (state.exp / state.nextLevelExp) * 100);
         elements.expFill.style.width = `${percentage}%`;
         elements.maxExp.textContent = state.nextLevelExp;
+        checkHarvestAllUnlock();
     }
 
     function showToast(msg) {
@@ -502,6 +678,7 @@ document.addEventListener('DOMContentLoaded', () => {
         el.className = 'floating-text';
         el.textContent = text;
         if (color === 'red') el.style.color = '#ff4444';
+        if (color === 'yellow') el.style.color = '#FFD700';
         card.appendChild(el);
         setTimeout(() => el.remove(), 1000);
     }
