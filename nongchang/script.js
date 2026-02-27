@@ -300,19 +300,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Populate Info
         elements.modalContent.icon.textContent = crop.emoji;
         elements.modalContent.name.textContent = `${crop.name} (Lv.${plot.level})`;
-        // We'll update dynamic info in updateModal
 
-        // Render first to get accurate dimensions? No, use approximations or reset styles
-        elements.modal.style.display = 'block'; // Need display block to measure if dynamic?
-        // For simplicity, assume fixed width or rely on CSS centering logic.
+        const modalWidth = 180;
+        const modalHeight = 120;
 
         const card = elements.farmGrid.children[index];
         const rect = card.getBoundingClientRect();
-
-        const modalWidth = 180;
-        const modalHeight = 120; // Increased for extra info
         const windowWidth = window.innerWidth;
-        const windowHeight = window.innerHeight;
 
         // Horizontal Positioning
         let left = rect.left + (rect.width / 2) - (modalWidth / 2);
@@ -329,16 +323,16 @@ document.addEventListener('DOMContentLoaded', () => {
             arrowLeft = 50 + (offset / modalWidth * 100);
         }
 
-        // Arrow Clamp (keep arrow within modal border radius)
+        // Arrow Clamp
         arrowLeft = Math.max(15, Math.min(85, arrowLeft));
 
         // Vertical Positioning
         let top = rect.top - modalHeight - 15;
-        let isTop = true; // Modal is ABOVE the slot
+        let isTop = true; // Modal is ABOVE the slot (arrow at bottom)
 
         if (top < 60) { // Too close to top header
             top = rect.bottom + 15;
-            isTop = false; // Modal is BELOW the slot
+            isTop = false; // Modal is BELOW the slot (arrow at top)
         }
 
         // Apply Styles
@@ -367,17 +361,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
             const progress = Math.min(100, (elapsed / duration) * 100);
 
-            // Info text
-            let info = `收益: ${Math.floor(crop.sellPrice * (state.market==='boom'?1.5:(state.market==='crash'?0.8:1)))}💰`;
-            if (state.weather === 'rainbow') info += " x2(彩虹)";
-            info += ` | Exp: ${crop.exp}`;
+            // Rich Info Text
+            let projectedGold = Math.floor(crop.sellPrice * (state.market === 'boom' ? 1.5 : (state.market === 'crash' ? 0.8 : 1)));
+            if (state.weather === 'rainbow') projectedGold *= 2;
 
-            elements.modalContent.timer.innerHTML = `${info}<br>剩余: ${remaining}s`;
+            elements.modalContent.timer.innerHTML = `
+                <div style="font-size:0.7rem; color:#aaa; margin-bottom:2px;">预计收益: ${projectedGold}💰 (+${crop.exp} Exp)</div>
+                <div style="font-size:0.9rem; font-weight:bold;">剩余: ${remaining}s</div>
+            `;
             elements.modalContent.progress.style.width = `${progress}%`;
 
             // Action Button Logic
             const fertilizer = ITEMS['fertilizer'];
-            elements.modalContent.actionBtn.textContent = `⚡ 加速 (${fertilizer.cost})`;
+            elements.modalContent.actionBtn.textContent = `⚡ 加速 (${fertilizer.cost}💰)`;
             elements.modalContent.actionBtn.onclick = () => {
                 useFertilizer(index);
                 closeModal();
@@ -385,6 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         updateModal(); // Initial render
+        elements.modal.style.display = 'block';
         elements.backdrop.style.display = 'block';
         state.openModalIndex = index; // Track open modal
     }
