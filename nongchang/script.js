@@ -50,6 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
         combo: 0,
         lastHarvestTime: 0,
         lastDailyReward: 0,
+        weather: 'sunny', // sunny, rainy, rainbow
+        market: 'normal', // normal, boom, crash
+        nextEnvUpdate: Date.now() + 60000, // Update every minute
         achievements: [], // List of unlocked achievement IDs
         plots: Array(25).fill(null).map((_, i) => {
             const row = Math.floor(i / 5);
@@ -78,11 +81,22 @@ document.addEventListener('DOMContentLoaded', () => {
         tabs: document.querySelectorAll('.tab-btn'),
         tabPanes: document.querySelectorAll('.tab-pane'),
         shopTabs: document.querySelectorAll('.secondary-tab-btn'),
+        weatherDisplay: document.getElementById('weather-display'), // New
+        marketDisplay: document.getElementById('market-display'),   // New
         toast: document.getElementById('message-toast'),
         statsTab: document.getElementById('stats-tab'),
         achievementsTab: document.getElementById('achievements-tab'),
         harvestAllBtn: null,
         plantAllBtn: null
+    };
+
+    const ENV_CONFIG = {
+        sunny: { name: '晴朗', emoji: '☀️', effect: '作物生长正常' },
+        rainy: { name: '小雨', emoji: '🌧️', effect: '生长速度 +30%' },
+        rainbow: { name: '彩虹', emoji: '🌈', effect: '收获奖励 x2' },
+        normal: { name: '平稳', emoji: '⚖️', effect: '物价正常' },
+        boom: { name: '繁荣', emoji: '📈', effect: '售价 +50%' },
+        crash: { name: '萧条', emoji: '📉', effect: '售价 -20%' }
     };
 
     // UI State
@@ -134,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         checkDailyReward();
         checkOfflineProgress();
         setupControlButtons();
+        updateEnvironment(true); // Force init check
         renderGrid();
         renderShop();
         renderStats();
@@ -336,11 +351,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const plot = state.plots[index];
         const crop = CROPS[plot.cropId];
 
-        // Random Event: Golden Crop (5% chance)
-        let isGolden = Math.random() < 0.05;
+        // Base Gains
         let goldGain = crop.sellPrice;
         let expGain = crop.exp;
 
+        // Market Effects
+        if (state.market === 'boom') goldGain = Math.floor(goldGain * 1.5);
+        if (state.market === 'crash') goldGain = Math.floor(goldGain * 0.8);
+
+        // Weather Effects (Rainbow doubles gold)
+        if (state.weather === 'rainbow') goldGain *= 2;
+
+        // Random Event: Golden Crop (5% chance)
+        let isGolden = Math.random() < 0.05;
         if (isGolden) {
             goldGain *= 2;
             showToast("✨ 发现金灿灿的作物！收益翻倍！");
@@ -757,10 +780,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.gold >= crop.cost) {
             if (navigator.vibrate) navigator.vibrate(20);
             state.gold -= crop.cost;
+
+            // Calculate growth time based on weather
+            let growthTime = crop.growthTime;
+            if (state.weather === 'rainy') {
+                growthTime = Math.floor(growthTime * 0.7); // 30% faster
+            }
+
             const plot = state.plots[index];
             plot.status = 'growing';
             plot.cropId = crop.id;
             plot.plantTime = Date.now();
+            plot.growthDuration = growthTime; // Store specific duration for this planting instance
+
             showFloatingText(index, `-${crop.cost}`, 'red');
             updateStatsUI();
             updatePlotUI(index);
@@ -845,13 +877,61 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => el.remove(), 1000);
     }
 
+    function updateEnvironment(force = false) {
+        const now = Date.now();
+        if (force || now >= state.nextEnvUpdate) {
+            // Randomize Weather (Weights: Sunny 60%, Rainy 30%, Rainbow 10%)
+            const rW = Math.random();
+            if (rW < 0.6) state.weather = 'sunny';
+            else if (rW < 0.9) state.weather = 'rainy';
+            else state.weather = 'rainbow';
+
+            // Randomize Market (Weights: Normal 60%, Boom 20%, Crash 20%)
+            const rM = Math.random();
+            if (rM < 0.6) state.market = 'normal';
+            else if (rM < 0.8) state.market = 'boom';
+            else state.market = 'crash';
+
+            state.nextEnvUpdate = now + 120000; // Change every 2 minutes
+
+            // Update Displays
+            updateEnvUI();
+
+            if (!force) showToast(`环境变化: ${ENV_CONFIG[state.weather].emoji} / 市场: ${ENV_CONFIG[state.market].emoji}`);
+            saveGame();
+        } else {
+            // Just update UI if needed (countdown?)
+            // updateEnvUI();
+        }
+    }
+
+    function updateEnvUI() {
+        if (elements.weatherDisplay) {
+            const w = ENV_CONFIG[state.weather];
+            elements.weatherDisplay.textContent = `${w.emoji} ${w.name}`;
+            elements.weatherDisplay.title = w.effect;
+        }
+        if (elements.marketDisplay) {
+            const m = ENV_CONFIG[state.market];
+            elements.marketDisplay.textContent = `${m.emoji} 市场${m.name} (${m.effect})`;
+            elements.marketDisplay.className = `market-status ${state.market}`;
+        }
+    }
+
     function startLoop() {
         setInterval(() => {
             const now = Date.now();
+
+            // Check Environment
+            updateEnvironment();
+
             state.plots.forEach((plot, index) => {
                 if (plot.status === 'growing') {
                     const crop = CROPS[plot.cropId];
-                    if (now - plot.plantTime >= crop.growthTime) {
+                    // Use stored duration or fallback to default
+                    const duration = plot.growthDuration || crop.growthTime;
+
+                    if (now - plot.plantTime >= duration) {
                         plot.status = 'ready';
                         updatePlotUI(index);
                     } else {
