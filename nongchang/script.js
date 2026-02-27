@@ -88,14 +88,14 @@ document.addEventListener('DOMContentLoaded', () => {
         statsTab: document.getElementById('stats-tab'),
         achievementsTab: document.getElementById('achievements-tab'),
         modal: document.getElementById('plot-modal'),
+        backdrop: document.getElementById('modal-backdrop'),
         modalContent: {
             icon: document.getElementById('modal-crop-icon'),
             name: document.getElementById('modal-crop-name'),
-            status: document.getElementById('modal-status'),
+            // status: document.getElementById('modal-status'), // Removed in compact view
             timer: document.getElementById('modal-timer'),
             progress: document.getElementById('modal-progress-bar'),
-            actionBtn: document.getElementById('modal-action-btn'),
-            closeBtn: document.querySelector('.close-modal')
+            actionBtn: document.getElementById('modal-action-btn')
         },
         harvestAllBtn: null,
         plantAllBtn: null
@@ -281,16 +281,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setupModal() {
-        elements.modalContent.closeBtn.onclick = () => {
-            elements.modal.style.display = 'none';
-            state.openModalIndex = undefined;
+        elements.backdrop.onclick = () => {
+            closeModal();
         };
-        window.onclick = (event) => {
-            if (event.target === elements.modal) {
-                elements.modal.style.display = 'none';
-                state.openModalIndex = undefined;
-            }
-        };
+    }
+
+    function closeModal() {
+        elements.modal.style.display = 'none';
+        elements.backdrop.style.display = 'none';
+        state.openModalIndex = undefined;
     }
 
     function openPlotModal(index) {
@@ -298,12 +297,35 @@ document.addEventListener('DOMContentLoaded', () => {
         const crop = CROPS[plot.cropId];
         if (!crop) return;
 
+        // Position Logic
+        const card = elements.farmGrid.children[index];
+        const rect = card.getBoundingClientRect();
+
+        // Calculate position (centered above the card)
+        // Card width ~80px, Modal width ~160px
+        // Center x: rect.left + rect.width/2 - modalWidth/2
+        // Top y: rect.top - modalHeight - 10px
+
+        const modalWidth = 180; // Approximate
+        const modalHeight = 100; // Approximate
+
+        let left = rect.left + (rect.width / 2) - (modalWidth / 2);
+        let top = rect.top - modalHeight - 20; // Above with some padding
+
+        // Boundary checks
+        if (left < 10) left = 10;
+        if (left + modalWidth > window.innerWidth - 10) left = window.innerWidth - modalWidth - 10;
+        if (top < 10) top = rect.bottom + 10; // If too high, show below
+
+        elements.modal.style.left = `${left}px`;
+        elements.modal.style.top = `${top}px`;
+
         elements.modalContent.icon.textContent = crop.emoji;
         elements.modalContent.name.textContent = crop.name;
 
         const updateModal = () => {
             if (plot.status !== 'growing') {
-                elements.modal.style.display = 'none'; // Close if finished
+                closeModal();
                 return;
             }
 
@@ -312,22 +334,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
             const progress = Math.min(100, (elapsed / duration) * 100);
 
-            elements.modalContent.status.textContent = plot.hasBugs || plot.hasWeeds ? '需要照料!' : '生长中...';
-            elements.modalContent.timer.textContent = `剩余时间: ${remaining}s`;
+            // elements.modalContent.status.textContent = plot.hasBugs || plot.hasWeeds ? '需要照料!' : '生长中...';
+            elements.modalContent.timer.textContent = `${remaining}s`;
             elements.modalContent.progress.style.width = `${progress}%`;
 
             // Action Button Logic
             const fertilizer = ITEMS['fertilizer'];
-            elements.modalContent.actionBtn.textContent = `加速 (${fertilizer.cost}💰)`;
+            elements.modalContent.actionBtn.textContent = `⚡ 加速 (${fertilizer.cost})`;
             elements.modalContent.actionBtn.onclick = () => {
                 useFertilizer(index);
-                elements.modal.style.display = 'none';
-                state.openModalIndex = undefined;
+                closeModal();
             };
         };
 
         updateModal(); // Initial render
         elements.modal.style.display = 'block';
+        elements.backdrop.style.display = 'block';
         state.openModalIndex = index; // Track open modal
     }
 
@@ -1037,11 +1059,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
                     const progress = Math.min(100, (elapsed / duration) * 100);
 
-                    elements.modalContent.timer.textContent = `剩余时间: ${remaining}s`;
+                    elements.modalContent.timer.textContent = `${remaining}s`;
                     elements.modalContent.progress.style.width = `${progress}%`;
                 } else {
-                    elements.modal.style.display = 'none';
-                    state.openModalIndex = undefined;
+                    closeModal();
                 }
             }
 

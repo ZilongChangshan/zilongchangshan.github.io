@@ -525,58 +525,83 @@
             opacity: 1;
         }
 
-        /* Modal */
+        /* Popover Modal */
         .modal {
             display: none;
-            position: fixed;
+            position: absolute; /* Relative to body or farm-grid */
             z-index: 200;
-            left: 0;
+            /* Position set by JS */
+        }
+
+        .modal-backdrop {
+            display: none;
+            position: fixed;
             top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.7);
-            animation: fadeIn 0.2s;
+            z-index: 199;
+            background: transparent; /* Invisible click catcher */
         }
 
         .modal-content {
-            background-color: #222;
-            margin: 20% auto;
-            padding: 20px;
-            border: 1px solid #444;
-            width: 80%;
-            max-width: 350px;
-            border-radius: 12px;
+            background-color: rgba(30, 30, 30, 0.95);
+            padding: 10px;
+            border: 1px solid var(--accent-color);
+            border-radius: 8px;
             text-align: center;
             position: relative;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.8);
+            width: 160px;
+            backdrop-filter: blur(4px);
+            animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .modal-content::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid var(--accent-color);
         }
 
         .close-modal {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            position: absolute;
-            right: 15px;
-            top: 5px;
+            display: none; /* No close button, click outside to close */
         }
 
-        .close-modal:hover {
-            color: #fff;
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 5px;
         }
 
         .modal-icon {
-            font-size: 3rem;
-            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        #modal-crop-name {
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        #modal-status {
+            font-size: 0.7rem;
+            color: #aaa;
+            margin-bottom: 4px;
         }
 
         .modal-progress-container {
             width: 100%;
-            height: 10px;
+            height: 6px;
             background-color: #333;
-            border-radius: 5px;
-            margin: 15px 0;
+            border-radius: 3px;
+            margin: 4px 0;
             overflow: hidden;
         }
 
@@ -587,11 +612,22 @@
             transition: width 0.5s linear;
         }
 
+        #modal-timer {
+            font-size: 0.8rem;
+            font-family: monospace;
+            color: #fff;
+        }
+
         .modal-actions {
-            margin-top: 20px;
+            margin-top: 8px;
             display: flex;
             justify-content: center;
-            gap: 10px;
+        }
+
+        #modal-action-btn {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            width: 100%;
         }
 
         @keyframes fadeIn {
@@ -755,17 +791,21 @@
 
     <div id="message-toast" class="toast"></div>
 
-    <!-- Plot Detail Modal -->
+    <!-- Modal Backdrop -->
+    <div id="modal-backdrop" class="modal-backdrop"></div>
+
+    <!-- Plot Detail Popover -->
     <div id="plot-modal" class="modal">
         <div class="modal-content">
-            <span class="close-modal">&times;</span>
-            <div id="modal-crop-icon" class="modal-icon">🌱</div>
-            <h2 id="modal-crop-name">作物名称</h2>
-            <div id="modal-status">状态: 生长中</div>
+            <div class="modal-header">
+                <div id="modal-crop-icon" class="modal-icon">🌱</div>
+                <h2 id="modal-crop-name">作物</h2>
+            </div>
+            <!-- <div id="modal-status">生长中</div> -->
             <div class="modal-progress-container">
                 <div id="modal-progress-bar" class="modal-progress-fill"></div>
             </div>
-            <div id="modal-timer">剩余时间: 00:00</div>
+            <div id="modal-timer">00:00</div>
             <div class="modal-actions">
                 <button id="modal-action-btn" class="action-btn">加速</button>
             </div>
