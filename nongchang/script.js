@@ -47,6 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
             totalGold: 0,
             adsWatched: 0
         },
+        combo: 0,
+        lastHarvestTime: 0,
+        lastDailyReward: 0,
         achievements: [], // List of unlocked achievement IDs
         plots: Array(25).fill(null).map((_, i) => {
             const row = Math.floor(i / 5);
@@ -128,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialization
     function init() {
         loadGame();
+        checkDailyReward();
         checkOfflineProgress();
         setupControlButtons();
         renderGrid();
@@ -145,6 +149,25 @@ document.addEventListener('DOMContentLoaded', () => {
         // Auto switch tab if item selected
         if (type === 'item') switchShopTab('items');
         selectShopItem(initialId, type);
+    }
+
+    function checkDailyReward() {
+        const now = Date.now();
+        const lastReward = state.lastDailyReward || 0;
+        const oneDay = 24 * 60 * 60 * 1000;
+
+        // Simple day check (midnight UTC-ish or just 24h)
+        // Let's use local date string to be more user-friendly
+        const lastDate = new Date(lastReward).toDateString();
+        const todayDate = new Date(now).toDateString();
+
+        if (lastDate !== todayDate) {
+            const reward = 100 + (state.level * 20);
+            state.gold += reward;
+            state.lastDailyReward = now;
+            showToast(`📅 每日签到！获得 ${reward} 💰`);
+            saveGame();
+        }
     }
 
     function checkOfflineProgress() {
@@ -313,14 +336,39 @@ document.addEventListener('DOMContentLoaded', () => {
         const plot = state.plots[index];
         const crop = CROPS[plot.cropId];
 
-        state.gold += crop.sellPrice;
-        state.exp += crop.exp;
+        // Random Event: Golden Crop (5% chance)
+        let isGolden = Math.random() < 0.05;
+        let goldGain = crop.sellPrice;
+        let expGain = crop.exp;
+
+        if (isGolden) {
+            goldGain *= 2;
+            showToast("✨ 发现金灿灿的作物！收益翻倍！");
+        }
+
+        // Combo Logic
+        const now = Date.now();
+        if (now - state.lastHarvestTime < 2000) {
+            state.combo++;
+        } else {
+            state.combo = 1;
+        }
+        state.lastHarvestTime = now;
+
+        if (state.combo >= 5) {
+            const comboBonus = Math.floor(goldGain * 0.1 * Math.min(state.combo, 20)); // Max 200% bonus cap
+            goldGain += comboBonus;
+            showFloatingText(index, `Combo x${state.combo}!`, 'purple');
+        }
+
+        state.gold += goldGain;
+        state.exp += expGain;
 
         // Update Stats
         state.stats.cropsHarvested++;
-        state.stats.totalGold += crop.sellPrice;
+        state.stats.totalGold += goldGain;
 
-        showFloatingText(index, `+${crop.sellPrice}`, 'gold');
+        showFloatingText(index, `+${goldGain}${isGolden ? '✨' : ''}`, isGolden ? 'yellow' : 'gold');
 
         plot.status = 'empty';
         plot.cropId = null;
