@@ -310,21 +310,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Horizontal Positioning
         let left = rect.left + (rect.width / 2) - (modalWidth / 2);
-        let arrowLeft = 50; // Percentage
 
         // Clamp Left
-        if (left < 10) {
-            const offset = 10 - left;
-            left = 10;
-            arrowLeft = 50 - (offset / modalWidth * 100);
-        } else if (left + modalWidth > windowWidth - 10) {
-            const offset = (left + modalWidth) - (windowWidth - 10);
-            left = windowWidth - modalWidth - 10;
-            arrowLeft = 50 + (offset / modalWidth * 100);
-        }
+        if (left < 10) left = 10;
+        if (left + modalWidth > windowWidth - 10) left = windowWidth - modalWidth - 10;
+
+        // Calculate Arrow Position
+        // Arrow should point to the center of the card
+        const cardCenterX = rect.left + (rect.width / 2);
+        const modalLeftX = left;
+        const arrowOffsetX = cardCenterX - modalLeftX;
+        let arrowLeft = (arrowOffsetX / modalWidth) * 100;
 
         // Arrow Clamp
-        arrowLeft = Math.max(15, Math.min(85, arrowLeft));
+        arrowLeft = Math.max(10, Math.min(90, arrowLeft));
 
         // Vertical Positioning
         let top = rect.top - modalHeight - 15;
@@ -365,9 +364,17 @@ document.addEventListener('DOMContentLoaded', () => {
             let projectedGold = Math.floor(crop.sellPrice * (state.market === 'boom' ? 1.5 : (state.market === 'crash' ? 0.8 : 1)));
             if (state.weather === 'rainbow') projectedGold *= 2;
 
+            const totalTime = Math.ceil(duration / 1000);
+            const statusText = plot.hasBugs || plot.hasWeeds ? '<span style="color:#ff9800">需照料</span>' : '<span style="color:#4CAF50">生长中</span>';
+
             elements.modalContent.timer.innerHTML = `
-                <div style="font-size:0.7rem; color:#aaa; margin-bottom:2px;">预计收益: ${projectedGold}💰 (+${crop.exp} Exp)</div>
-                <div style="font-size:0.9rem; font-weight:bold;">剩余: ${remaining}s</div>
+                <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#ccc; margin-bottom:4px;">
+                    <span>${statusText}</span>
+                    <span>${remaining}s / ${totalTime}s</span>
+                </div>
+                <div style="font-size:0.75rem; color:#aaa;">
+                    预计: <span style="color:#FFD700">${projectedGold}💰</span> <span style="color:#00BCD4">+${crop.exp}⭐</span>
+                </div>
             `;
             elements.modalContent.progress.style.width = `${progress}%`;
 
