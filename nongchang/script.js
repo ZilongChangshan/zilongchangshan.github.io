@@ -1,6 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Game Data
     const CROPS = {
+        rice: { id: 'rice', name: '水稻', emoji: '🌾', seedEmoji: '🌱', cost: 15, sellPrice: 20, growthTime: 4000, exp: 3, minLevel: 2, desc: '雨天生长极快' },
+        rose: { id: 'rose', name: '玫瑰', emoji: '🌹', seedEmoji: '🌱', cost: 500, sellPrice: 1200, growthTime: 60000, exp: 60, minLevel: 7, desc: '美丽的爱情象征' },
+
         wheat: { id: 'wheat', name: '小麦', emoji: '🌾', seedEmoji: '🌱', cost: 10, sellPrice: 15, growthTime: 3000, exp: 2, minLevel: 1 },
         corn: { id: 'corn', name: '玉米', emoji: '🌽', seedEmoji: '🌱', cost: 20, sellPrice: 35, growthTime: 5000, exp: 4, minLevel: 2 },
         carrot: { id: 'carrot', name: '胡萝卜', emoji: '🥕', seedEmoji: '🌱', cost: 30, sellPrice: 55, growthTime: 8000, exp: 6, minLevel: 3 },
@@ -17,7 +20,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const ITEMS = {
         fertilizer: { id: 'fertilizer', name: '强力化肥', emoji: '⚡', cost: 50, desc: '立刻成熟', type: 'item' },
-        dog: { id: 'dog', name: '看门狗', emoji: '🐕', cost: 1000, desc: '自动捡钱 & 防虫', type: 'pet', max: 1 }
+        dog: { id: 'dog', name: '看门狗', emoji: '🐕', cost: 1000, desc: '自动捡钱 & 防虫', type: 'pet', max: 1 },
+        pet_food: { id: 'pet_food', name: '高级狗粮', emoji: '🍖', cost: 50, desc: '恢复 50 体力', type: 'item' }
     };
 
     const ACHIEVEMENTS = [
@@ -38,7 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Game State
     let state = {
         gold: 100,
-        storage: {}, // cropId -> quantity
+        storage: {},
+        orders: [], // cropId -> quantity
 
         pet: {
             unlocked: false,
@@ -194,7 +199,8 @@ document.addEventListener('DOMContentLoaded', () => {
         checkOfflineProgress();
         setupControlButtons();
         setupModal();
-        updateEnvironment(); // Deterministic check
+        updateEnvironment();
+            checkOrders(); // Deterministic check
         renderGrid();
         // Refresh UI for all plots to show loaded weeds/bugs
         state.plots.forEach((_, i) => updatePlotUI(i));
@@ -294,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (tabName === 'stats') renderStats();
                 if (tabName === 'achievements') renderAchievements();
                 if (tabName === 'pet') updatePetUI();
-                if (tabName === 'storage') updateStorageUI();
+                if (tabName === 'storage') { updateStorageUI(); updateOrdersUI(); }
             });
         });
     }
@@ -880,6 +886,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function selectShopItem(id, type) {
+        if (id === 'pet_food') {
+            if (confirm("购买高级狗粮 (50💰) 并喂食旺财?")) {
+                buyPetFood();
+            }
+            return;
+        }
+
         if (navigator.vibrate) navigator.vibrate(10);
         state.selectedItemId = id;
         state.selectedItemType = type;
@@ -996,7 +1009,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Calculate growth time based on weather
             let growthTime = crop.growthTime;
             if (state.weather === 'rainy') {
-                growthTime = Math.floor(growthTime * 0.7); // 30% faster
+
+            if (crop.id === 'rice') growthTime = Math.floor(growthTime * 0.4);
+            else growthTime = Math.floor(growthTime * 0.7);
+ // 30% faster
             }
 
             const plot = state.plots[index];
@@ -1144,6 +1160,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Check Environment
             updateEnvironment();
+            checkOrders();
 
 
             // Pet Regen & Update
@@ -1172,7 +1189,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Dog Logic (Every 10 seconds approx, low chance)
             if (state.hasDog) {
                 // Find gold
-                if (Math.random() < 0.005) {
+                if (Math.random() < 0.02) {
                     const foundGold = Math.floor(Math.random() * 20) + 10;
                     state.gold += foundGold;
                     showToast(`🐕 狗狗捡到了 ${foundGold} 金币!`);
@@ -1538,6 +1555,148 @@ document.addEventListener('DOMContentLoaded', () => {
             saveGame();
         }
     }
+
+
+
+    // --- Order System ---
+    const MAX_ORDERS = 3;
+
+    function generateOrder() {
+        if (state.orders.length >= MAX_ORDERS) return;
+
+        const unlockedCrops = Object.values(CROPS).filter(c => state.level >= c.minLevel);
+        if (unlockedCrops.length === 0) return;
+
+        const crop = unlockedCrops[Math.floor(Math.random() * unlockedCrops.length)];
+        const qty = Math.floor(Math.random() * 5) + 3 + Math.floor(state.level / 2); // 3-8 base + level scaling
+
+        // Reward calculation: Base Price * Qty * 1.5 (Premium)
+        const reward = Math.floor(crop.sellPrice * qty * 1.5);
+
+        const order = {
+            id: Date.now() + Math.random(),
+            cropId: crop.id,
+            qty: qty,
+            reward: reward,
+            time: Date.now(),
+            expires: Date.now() + 300000 // 5 minutes
+        };
+
+        state.orders.push(order);
+        showToast(`📜 新订单: ${crop.name} x${qty}`);
+        updateOrdersUI();
+        saveGame();
+    }
+
+    function checkOrders() {
+        // Expire old orders
+        const now = Date.now();
+        const initialLen = state.orders.length;
+        state.orders = state.orders.filter(o => now < o.expires);
+
+        if (state.orders.length < initialLen) {
+            updateOrdersUI();
+        }
+
+        // Generate new order occasionally
+        if (state.orders.length < MAX_ORDERS && Math.random() < 0.02) { // Low chance per tick
+            generateOrder();
+        }
+    }
+
+    function fulfillOrder(orderId) {
+        const orderIndex = state.orders.findIndex(o => o.id === orderId);
+        if (orderIndex === -1) return;
+
+        const order = state.orders[orderIndex];
+
+        if ((state.storage[order.cropId] || 0) >= order.qty) {
+            state.storage[order.cropId] -= order.qty;
+            state.gold += order.reward;
+            state.stats.totalGold += order.reward;
+
+            // Bonus Exp for orders
+            state.exp += Math.floor(order.reward / 10);
+
+            state.orders.splice(orderIndex, 1);
+
+            showToast(`✅ 订单完成! 获得 ${order.reward} 💰`);
+            if (navigator.vibrate) navigator.vibrate(100);
+
+            checkLevelUp();
+            updateStatsUI();
+            updateStorageUI(); // Refresh storage list
+            updateOrdersUI();
+            saveGame();
+        } else {
+            showToast("库存不足! 📦");
+        }
+    }
+
+    function renderOrders() {
+        const container = document.getElementById('orders-list');
+        if (!container) return;
+
+        container.innerHTML = '';
+        if (state.orders.length === 0) {
+            container.innerHTML = '<div style="color:#666; font-size:0.8rem; text-align:center; padding:10px;">暂无订单 (等待刷新...)</div>';
+            return;
+        }
+
+        state.orders.forEach(order => {
+            const crop = CROPS[order.cropId];
+            const hasEnough = (state.storage[order.cropId] || 0) >= order.qty;
+
+            const div = document.createElement('div');
+            div.className = 'order-card';
+            div.style.cssText = 'background:#252525; padding:8px; margin-bottom:5px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; border:1px solid #444;';
+
+            const timeLeft = Math.max(0, Math.ceil((order.expires - Date.now()) / 1000));
+
+            div.innerHTML = `
+                <div>
+                    <div style="font-weight:bold; font-size:0.9rem;">${crop.emoji} ${crop.name} x${order.qty}</div>
+                    <div style="font-size:0.75rem; color:#aaa;">奖励: <span style="color:#FFD700">${order.reward}💰</span> ⏳${timeLeft}s</div>
+                </div>
+                <button class="action-btn-order" data-id="${order.id}" style="width:auto; padding:4px 8px; font-size:0.8rem; background-color:${hasEnough ? '#4CAF50' : '#555'}; color:white; border:none; border-radius:4px; cursor:pointer;">
+                    ${hasEnough ? '提交' : '缺货'}
+                </button>
+            `;
+
+            if (hasEnough) {
+                div.querySelector('.action-btn-order').onclick = () => fulfillOrder(order.id);
+            }
+
+            container.appendChild(div);
+        });
+    }
+
+    function updateOrdersUI() {
+        if (document.getElementById('storage-tab').classList.contains('active')) {
+            renderOrders();
+        }
+    }
+
+    // --- Pet Food Logic ---
+    function buyPetFood() {
+        const cost = 50;
+        if (state.gold >= cost) {
+            if (state.pet.energy >= 100) {
+                showToast("旺财已经吃饱了! 🐕");
+                return;
+            }
+            state.gold -= cost;
+            state.pet.energy = Math.min(100, state.pet.energy + 50);
+            state.pet.mood = Math.min(100, state.pet.mood + 10);
+            showToast("🍖 喂食成功! 体力 +50");
+            updateStatsUI();
+            updatePetUI();
+            saveGame();
+        } else {
+             showToast(`金币不足! (${cost}💰)`);
+        }
+    }
+
 
     init();
 });

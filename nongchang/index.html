@@ -1074,10 +1074,10 @@
             <!-- Tabs -->
             <div class="tabs">
                 <button class="tab-btn active" data-tab="shop">商店</button>
-                <button class="tab-btn" data-tab="stats">统计</button>
-                <button class="tab-btn" data-tab="achievements">成就</button>
                 <button class="tab-btn" data-tab="storage">仓库</button>
                 <button class="tab-btn" data-tab="pet">宠物</button>
+                <button class="tab-btn" data-tab="achievements">成就</button>
+                <button class="tab-btn" data-tab="stats">统计</button>
             </div>
 
             <!-- Tab Content -->
@@ -1111,6 +1111,14 @@
                         <h3>我的仓库</h3>
                         <div class="storage-total-value">预估总价值: <span id="storage-total-val" style="color: gold;">0</span> 💰</div>
                     </div>
+
+                    <div class="storage-header" style="margin-bottom:10px; background:rgba(50,50,0,0.3); border-bottom:1px solid #444;">
+                        <h3 style="color:#FFD700">📜 订单需求</h3>
+                        <div id="orders-list" style="max-height:150px; overflow-y:auto; margin-top:5px;">
+                            <!-- Orders go here -->
+                        </div>
+                    </div>
+
                     <div id="storage-list" class="storage-list">
                         <!-- Items go here -->
                         <p style="text-align:center; color:#666; margin-top:20px;">仓库是空的</p>
