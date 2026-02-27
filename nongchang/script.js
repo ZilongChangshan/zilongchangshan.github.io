@@ -150,7 +150,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // UI State
-    let currentShopTab = 'seeds'; // 'seeds' or 'items'
+    let currentShopTab = 'seeds';
+    let currentStorageTab = 'inventory'; // 'seeds' or 'items'
 
     // Save/Load
     function saveGame() {
@@ -211,6 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatsUI();
         setupTabs();
         setupShopTabs();
+        setupStorageTabs();
         initPetUI();
         startLoop();
 
@@ -303,6 +305,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (tabName === 'storage') { updateStorageUI(); updateOrdersUI(); }
             });
         });
+    }
+
+
+    function setupStorageTabs() {
+        const storageTabsBtn = document.querySelectorAll('.secondary-tab-btn[data-storage-tab]');
+        storageTabsBtn.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabName = btn.dataset.storageTab;
+                switchStorageTab(tabName);
+            });
+        });
+    }
+
+    function switchStorageTab(tabName) {
+        currentStorageTab = tabName;
+        const storageTabsBtn = document.querySelectorAll('.secondary-tab-btn[data-storage-tab]');
+        storageTabsBtn.forEach(b => {
+            if (b.dataset.storageTab === tabName) b.classList.add('active');
+            else b.classList.remove('active');
+        });
+
+        document.getElementById('storage-inventory-view').style.display = tabName === 'inventory' ? 'flex' : 'none';
+        document.getElementById('storage-orders-view').style.display = tabName === 'orders' ? 'flex' : 'none';
+
+        if (tabName === 'inventory') renderStorage();
+        if (tabName === 'orders') renderOrders();
     }
 
     function setupShopTabs() {
