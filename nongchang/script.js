@@ -297,31 +297,64 @@ document.addEventListener('DOMContentLoaded', () => {
         const crop = CROPS[plot.cropId];
         if (!crop) return;
 
-        // Position Logic
+        // Populate Info
+        elements.modalContent.icon.textContent = crop.emoji;
+        elements.modalContent.name.textContent = `${crop.name} (Lv.${plot.level})`;
+        // We'll update dynamic info in updateModal
+
+        // Render first to get accurate dimensions? No, use approximations or reset styles
+        elements.modal.style.display = 'block'; // Need display block to measure if dynamic?
+        // For simplicity, assume fixed width or rely on CSS centering logic.
+
         const card = elements.farmGrid.children[index];
         const rect = card.getBoundingClientRect();
 
-        // Calculate position (centered above the card)
-        // Card width ~80px, Modal width ~160px
-        // Center x: rect.left + rect.width/2 - modalWidth/2
-        // Top y: rect.top - modalHeight - 10px
+        const modalWidth = 180;
+        const modalHeight = 120; // Increased for extra info
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
 
-        const modalWidth = 180; // Approximate
-        const modalHeight = 100; // Approximate
-
+        // Horizontal Positioning
         let left = rect.left + (rect.width / 2) - (modalWidth / 2);
-        let top = rect.top - modalHeight - 20; // Above with some padding
+        let arrowLeft = 50; // Percentage
 
-        // Boundary checks
-        if (left < 10) left = 10;
-        if (left + modalWidth > window.innerWidth - 10) left = window.innerWidth - modalWidth - 10;
-        if (top < 10) top = rect.bottom + 10; // If too high, show below
+        // Clamp Left
+        if (left < 10) {
+            const offset = 10 - left;
+            left = 10;
+            arrowLeft = 50 - (offset / modalWidth * 100);
+        } else if (left + modalWidth > windowWidth - 10) {
+            const offset = (left + modalWidth) - (windowWidth - 10);
+            left = windowWidth - modalWidth - 10;
+            arrowLeft = 50 + (offset / modalWidth * 100);
+        }
 
+        // Arrow Clamp (keep arrow within modal border radius)
+        arrowLeft = Math.max(15, Math.min(85, arrowLeft));
+
+        // Vertical Positioning
+        let top = rect.top - modalHeight - 15;
+        let isTop = true; // Modal is ABOVE the slot
+
+        if (top < 60) { // Too close to top header
+            top = rect.bottom + 15;
+            isTop = false; // Modal is BELOW the slot
+        }
+
+        // Apply Styles
         elements.modal.style.left = `${left}px`;
         elements.modal.style.top = `${top}px`;
 
-        elements.modalContent.icon.textContent = crop.emoji;
-        elements.modalContent.name.textContent = crop.name;
+        const content = elements.modal.querySelector('.modal-content');
+        content.style.setProperty('--arrow-left', `${arrowLeft}%`);
+
+        if (isTop) {
+            content.classList.remove('arrow-top');
+            content.classList.add('arrow-bottom');
+        } else {
+            content.classList.remove('arrow-bottom');
+            content.classList.add('arrow-top');
+        }
 
         const updateModal = () => {
             if (plot.status !== 'growing') {
@@ -334,8 +367,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
             const progress = Math.min(100, (elapsed / duration) * 100);
 
-            // elements.modalContent.status.textContent = plot.hasBugs || plot.hasWeeds ? '需要照料!' : '生长中...';
-            elements.modalContent.timer.textContent = `${remaining}s`;
+            // Info text
+            let info = `收益: ${Math.floor(crop.sellPrice * (state.market==='boom'?1.5:(state.market==='crash'?0.8:1)))}💰`;
+            if (state.weather === 'rainbow') info += " x2(彩虹)";
+            info += ` | Exp: ${crop.exp}`;
+
+            elements.modalContent.timer.innerHTML = `${info}<br>剩余: ${remaining}s`;
             elements.modalContent.progress.style.width = `${progress}%`;
 
             // Action Button Logic
@@ -348,7 +385,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         updateModal(); // Initial render
-        elements.modal.style.display = 'block';
         elements.backdrop.style.display = 'block';
         state.openModalIndex = index; // Track open modal
     }
