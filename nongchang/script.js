@@ -87,6 +87,16 @@ document.addEventListener('DOMContentLoaded', () => {
         toast: document.getElementById('message-toast'),
         statsTab: document.getElementById('stats-tab'),
         achievementsTab: document.getElementById('achievements-tab'),
+        modal: document.getElementById('plot-modal'),
+        modalContent: {
+            icon: document.getElementById('modal-crop-icon'),
+            name: document.getElementById('modal-crop-name'),
+            status: document.getElementById('modal-status'),
+            timer: document.getElementById('modal-timer'),
+            progress: document.getElementById('modal-progress-bar'),
+            actionBtn: document.getElementById('modal-action-btn'),
+            closeBtn: document.querySelector('.close-modal')
+        },
         harvestAllBtn: null,
         plantAllBtn: null
     };
@@ -149,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
         checkDailyReward();
         checkOfflineProgress();
         setupControlButtons();
+        setupModal();
         updateEnvironment(); // Deterministic check
         renderGrid();
         // Refresh UI for all plots to show loaded weeds/bugs
@@ -267,6 +278,57 @@ document.addEventListener('DOMContentLoaded', () => {
             else b.classList.remove('active');
         });
         renderShop();
+    }
+
+    function setupModal() {
+        elements.modalContent.closeBtn.onclick = () => {
+            elements.modal.style.display = 'none';
+            state.openModalIndex = undefined;
+        };
+        window.onclick = (event) => {
+            if (event.target === elements.modal) {
+                elements.modal.style.display = 'none';
+                state.openModalIndex = undefined;
+            }
+        };
+    }
+
+    function openPlotModal(index) {
+        const plot = state.plots[index];
+        const crop = CROPS[plot.cropId];
+        if (!crop) return;
+
+        elements.modalContent.icon.textContent = crop.emoji;
+        elements.modalContent.name.textContent = crop.name;
+
+        const updateModal = () => {
+            if (plot.status !== 'growing') {
+                elements.modal.style.display = 'none'; // Close if finished
+                return;
+            }
+
+            const elapsed = Date.now() - plot.plantTime;
+            const duration = plot.growthDuration || crop.growthTime;
+            const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
+            const progress = Math.min(100, (elapsed / duration) * 100);
+
+            elements.modalContent.status.textContent = plot.hasBugs || plot.hasWeeds ? '需要照料!' : '生长中...';
+            elements.modalContent.timer.textContent = `剩余时间: ${remaining}s`;
+            elements.modalContent.progress.style.width = `${progress}%`;
+
+            // Action Button Logic
+            const fertilizer = ITEMS['fertilizer'];
+            elements.modalContent.actionBtn.textContent = `加速 (${fertilizer.cost}💰)`;
+            elements.modalContent.actionBtn.onclick = () => {
+                useFertilizer(index);
+                elements.modal.style.display = 'none';
+                state.openModalIndex = undefined;
+            };
+        };
+
+        updateModal(); // Initial render
+        elements.modal.style.display = 'block';
+        state.openModalIndex = index; // Track open modal
     }
 
     // Stats & Achievements
@@ -746,9 +808,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (state.selectedItemId === 'dog') {
                 buyDog();
             } else {
-                const crop = CROPS[plot.cropId];
-                const remaining = Math.ceil((crop.growthTime - (Date.now() - plot.plantTime)) / 1000);
-                showToast(`还需 ${remaining} 秒成熟 (使用化肥加速?)`);
+                openPlotModal(index);
             }
         }
     }
@@ -966,6 +1026,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Check Environment
             updateEnvironment();
+
+            // Update Modal if open
+            if (state.openModalIndex !== undefined && elements.modal.style.display === 'block') {
+                const plot = state.plots[state.openModalIndex];
+                if (plot && plot.status === 'growing') {
+                    const crop = CROPS[plot.cropId];
+                    const elapsed = Date.now() - plot.plantTime;
+                    const duration = plot.growthDuration || crop.growthTime;
+                    const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
+                    const progress = Math.min(100, (elapsed / duration) * 100);
+
+                    elements.modalContent.timer.textContent = `剩余时间: ${remaining}s`;
+                    elements.modalContent.progress.style.width = `${progress}%`;
+                } else {
+                    elements.modal.style.display = 'none';
+                    state.openModalIndex = undefined;
+                }
+            }
 
             // Dog Logic (Every 10 seconds approx, low chance)
             if (state.hasDog) {
