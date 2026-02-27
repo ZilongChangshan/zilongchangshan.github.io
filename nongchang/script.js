@@ -14,7 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const ITEMS = {
-        fertilizer: { id: 'fertilizer', name: '强力化肥', emoji: '⚡', cost: 50, desc: '立刻成熟', type: 'item' }
+        fertilizer: { id: 'fertilizer', name: '强力化肥', emoji: '⚡', cost: 50, desc: '立刻成熟', type: 'item' },
+        dog: { id: 'dog', name: '看门狗', emoji: '🐕', cost: 1000, desc: '自动捡钱 & 防虫', type: 'pet', max: 1 }
     };
 
     const ACHIEVEMENTS = [
@@ -52,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lastDailyReward: 0,
         weather: 'sunny', // sunny, rainy, rainbow
         market: 'normal', // normal, boom, crash
+        hasDog: false,
         achievements: [], // List of unlocked achievement IDs
         plots: Array(25).fill(null).map((_, i) => {
             const row = Math.floor(i / 5);
@@ -149,6 +151,9 @@ document.addEventListener('DOMContentLoaded', () => {
         setupControlButtons();
         updateEnvironment(); // Deterministic check
         renderGrid();
+        // Refresh UI for all plots to show loaded weeds/bugs
+        state.plots.forEach((_, i) => updatePlotUI(i));
+
         renderShop();
         renderStats();
         renderAchievements();
@@ -672,11 +677,19 @@ document.addEventListener('DOMContentLoaded', () => {
             cost.textContent = `💰 ${obj.cost}  ⏳ ${obj.growthTime/1000}s`;
             info.appendChild(name);
             info.appendChild(cost);
-        } else {
+        } else if (type === 'item') {
             name.textContent = obj.name;
             const cost = document.createElement('div');
             cost.className = 'shop-cost';
-            cost.textContent = `💰 ${obj.cost}  ${obj.desc}`;
+
+            // Special handling for Pet
+            if (obj.id === 'dog' && state.hasDog) {
+                cost.textContent = '已拥有';
+                item.classList.add('owned');
+            } else {
+                cost.textContent = `💰 ${obj.cost}  ${obj.desc}`;
+            }
+
             info.appendChild(name);
             info.appendChild(cost);
         }
@@ -720,6 +733,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (plot.status === 'empty') {
             if (state.selectedItemType === 'crop') {
                 plantCrop(index);
+            } else if (state.selectedItemId === 'dog') {
+                buyDog();
             } else {
                 showToast("请选择种子进行种植 🌱");
             }
@@ -728,11 +743,31 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (plot.status === 'growing') {
             if (state.selectedItemType === 'item' && state.selectedItemId === 'fertilizer') {
                 useFertilizer(index);
+            } else if (state.selectedItemId === 'dog') {
+                buyDog();
             } else {
                 const crop = CROPS[plot.cropId];
                 const remaining = Math.ceil((crop.growthTime - (Date.now() - plot.plantTime)) / 1000);
                 showToast(`还需 ${remaining} 秒成熟 (使用化肥加速?)`);
             }
+        }
+    }
+
+    function buyDog() {
+        if (state.hasDog) {
+            showToast("你已经有一只看门狗了 🐕");
+            return;
+        }
+        const dogItem = ITEMS['dog'];
+        if (state.gold >= dogItem.cost) {
+            state.gold -= dogItem.cost;
+            state.hasDog = true;
+            showToast("🐕 看门狗已购买！它会帮你捡金币！");
+            updateStatsUI();
+            renderShop(); // Update shop UI to show 'owned'
+            saveGame();
+        } else {
+            showToast("金币不足！需要 💰" + dogItem.cost);
         }
     }
 
@@ -932,11 +967,53 @@ document.addEventListener('DOMContentLoaded', () => {
             // Check Environment
             updateEnvironment();
 
+            // Dog Logic (Every 10 seconds approx, low chance)
+            if (state.hasDog) {
+                // Find gold
+                if (Math.random() < 0.005) {
+                    const foundGold = Math.floor(Math.random() * 20) + 10;
+                    state.gold += foundGold;
+                    showToast(`🐕 狗狗捡到了 ${foundGold} 金币!`);
+                    updateStatsUI();
+                    saveGame();
+                }
+                // Auto-catch bugs (Preventative or Reactive?)
+                state.plots.forEach((p, idx) => {
+                    if (p.hasBugs && Math.random() < 0.02) {
+                        p.hasBugs = false;
+                        showToast("🐕 狗狗抓住了害虫!");
+                        updatePlotUI(idx);
+                        saveGame();
+                    }
+                });
+            }
+
+            // Random Weeds/Bugs Spawning (Low chance)
+            if (Math.random() < 0.01) { // 1% chance per tick to try spawning something
+                const randomIdx = Math.floor(Math.random() * 25);
+                const p = state.plots[randomIdx];
+                if (p.unlocked) {
+                    if (!p.hasWeeds && Math.random() < 0.5) {
+                        p.hasWeeds = true;
+                        updatePlotUI(randomIdx);
+                    } else if (!p.hasBugs && p.status === 'growing') {
+                        // Bugs only on growing crops
+                        p.hasBugs = true;
+                        updatePlotUI(randomIdx);
+                    }
+                }
+            }
+
             state.plots.forEach((plot, index) => {
                 if (plot.status === 'growing') {
                     const crop = CROPS[plot.cropId];
                     // Use stored duration or fallback to default
                     const duration = plot.growthDuration || crop.growthTime;
+
+                    // Weeds/Bugs slow down growth
+                    if (plot.hasWeeds || plot.hasBugs) {
+                        plot.plantTime += 100; // Delay by tick interval
+                    }
 
                     if (now - plot.plantTime >= duration) {
                         plot.status = 'ready';
