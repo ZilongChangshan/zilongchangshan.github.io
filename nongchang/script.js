@@ -301,54 +301,6 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.modalContent.icon.textContent = crop.emoji;
         elements.modalContent.name.textContent = `${crop.name} (Lv.${plot.level})`;
 
-        const modalWidth = 180;
-        const modalHeight = 120;
-
-        const card = elements.farmGrid.children[index];
-        const rect = card.getBoundingClientRect();
-        const windowWidth = window.innerWidth;
-
-        // Horizontal Positioning
-        let left = rect.left + (rect.width / 2) - (modalWidth / 2);
-
-        // Clamp Left
-        if (left < 10) left = 10;
-        if (left + modalWidth > windowWidth - 10) left = windowWidth - modalWidth - 10;
-
-        // Calculate Arrow Position
-        // Arrow should point to the center of the card
-        const cardCenterX = rect.left + (rect.width / 2);
-        const modalLeftX = left;
-        const arrowOffsetX = cardCenterX - modalLeftX;
-        let arrowLeft = (arrowOffsetX / modalWidth) * 100;
-
-        // Arrow Clamp
-        arrowLeft = Math.max(10, Math.min(90, arrowLeft));
-
-        // Vertical Positioning
-        let top = rect.top - modalHeight - 15;
-        let isTop = true; // Modal is ABOVE the slot (arrow at bottom)
-
-        if (top < 60) { // Too close to top header
-            top = rect.bottom + 15;
-            isTop = false; // Modal is BELOW the slot (arrow at top)
-        }
-
-        // Apply Styles
-        elements.modal.style.left = `${left}px`;
-        elements.modal.style.top = `${top}px`;
-
-        const content = elements.modal.querySelector('.modal-content');
-        content.style.setProperty('--arrow-left', `${arrowLeft}%`);
-
-        if (isTop) {
-            content.classList.remove('arrow-top');
-            content.classList.add('arrow-bottom');
-        } else {
-            content.classList.remove('arrow-bottom');
-            content.classList.add('arrow-top');
-        }
-
         const updateModal = () => {
             if (plot.status !== 'growing') {
                 closeModal();
@@ -387,8 +339,65 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         };
 
-        updateModal(); // Initial render
+        // Render content first to measure size
+        updateModal();
+
+        // Show temporarily to measure (opacity 0 to avoid jump)
+        elements.modal.style.opacity = '0';
         elements.modal.style.display = 'block';
+
+        // Dynamic Measurement
+        const modalWidth = elements.modal.offsetWidth;
+        const modalHeight = elements.modal.offsetHeight;
+
+        const card = elements.farmGrid.children[index];
+        const rect = card.getBoundingClientRect();
+        const windowWidth = window.innerWidth;
+
+        // Horizontal Positioning
+        let left = rect.left + (rect.width / 2) - (modalWidth / 2);
+
+        // Clamp Left
+        if (left < 10) left = 10;
+        if (left + modalWidth > windowWidth - 10) left = windowWidth - modalWidth - 10;
+
+        // Calculate Arrow Position
+        // Arrow should point to the center of the card
+        const cardCenterX = rect.left + (rect.width / 2);
+        const modalLeftX = left;
+        const arrowOffsetX = cardCenterX - modalLeftX;
+        let arrowLeft = (arrowOffsetX / modalWidth) * 100;
+
+        // Arrow Clamp
+        arrowLeft = Math.max(10, Math.min(90, arrowLeft));
+
+        // Vertical Positioning
+        let top = rect.top - modalHeight - 10; // 10px spacing
+        let isTop = true; // Modal is ABOVE the slot (arrow at bottom)
+
+        // If too close to top (header area approx 60px + margin)
+        if (top < 80) {
+            top = rect.bottom + 10;
+            isTop = false; // Modal is BELOW the slot (arrow at top)
+        }
+
+        // Apply Styles
+        elements.modal.style.left = `${left}px`;
+        elements.modal.style.top = `${top}px`;
+
+        const content = elements.modal.querySelector('.modal-content');
+        content.style.setProperty('--arrow-left', `${arrowLeft}%`);
+
+        if (isTop) {
+            content.classList.remove('arrow-top');
+            content.classList.add('arrow-bottom');
+        } else {
+            content.classList.remove('arrow-bottom');
+            content.classList.add('arrow-top');
+        }
+
+        // Make visible
+        elements.modal.style.opacity = '1';
         elements.backdrop.style.display = 'block';
         state.openModalIndex = index; // Track open modal
     }
