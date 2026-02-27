@@ -52,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
         lastDailyReward: 0,
         weather: 'sunny', // sunny, rainy, rainbow
         market: 'normal', // normal, boom, crash
-        nextEnvUpdate: Date.now() + 60000, // Update every minute
         achievements: [], // List of unlocked achievement IDs
         plots: Array(25).fill(null).map((_, i) => {
             const row = Math.floor(i / 5);
@@ -148,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         checkDailyReward();
         checkOfflineProgress();
         setupControlButtons();
-        updateEnvironment(true); // Force init check
+        updateEnvironment(); // Deterministic check
         renderGrid();
         renderShop();
         renderStats();
@@ -877,32 +876,40 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => el.remove(), 1000);
     }
 
-    function updateEnvironment(force = false) {
+    function updateEnvironment() {
         const now = Date.now();
-        if (force || now >= state.nextEnvUpdate) {
-            // Randomize Weather (Weights: Sunny 60%, Rainy 30%, Rainbow 10%)
-            const rW = Math.random();
-            if (rW < 0.6) state.weather = 'sunny';
-            else if (rW < 0.9) state.weather = 'rainy';
-            else state.weather = 'rainbow';
+        // Change environment every hour (3600000 ms)
+        // Use the current hour timestamp as seed
+        const timeBlock = Math.floor(now / 3600000);
 
-            // Randomize Market (Weights: Normal 60%, Boom 20%, Crash 20%)
-            const rM = Math.random();
-            if (rM < 0.6) state.market = 'normal';
-            else if (rM < 0.8) state.market = 'boom';
-            else state.market = 'crash';
+        // Simple seeded random
+        const seedW = (timeBlock * 9301 + 49297) % 233280;
+        const rW = seedW / 233280.0;
 
-            state.nextEnvUpdate = now + 120000; // Change every 2 minutes
+        const seedM = (timeBlock * 49297 + 9301) % 233280;
+        const rM = seedM / 233280.0;
 
-            // Update Displays
-            updateEnvUI();
+        // Determine Weather (Weights: Sunny 60%, Rainy 30%, Rainbow 10%)
+        let newWeather = 'sunny';
+        if (rW < 0.6) newWeather = 'sunny';
+        else if (rW < 0.9) newWeather = 'rainy';
+        else newWeather = 'rainbow';
 
-            if (!force) showToast(`环境变化: ${ENV_CONFIG[state.weather].emoji} / 市场: ${ENV_CONFIG[state.market].emoji}`);
+        // Determine Market (Weights: Normal 60%, Boom 20%, Crash 20%)
+        let newMarket = 'normal';
+        if (rM < 0.6) newMarket = 'normal';
+        else if (rM < 0.8) newMarket = 'boom';
+        else newMarket = 'crash';
+
+        // Update state if changed
+        if (state.weather !== newWeather || state.market !== newMarket) {
+            state.weather = newWeather;
+            state.market = newMarket;
+            showToast(`环境变化: ${ENV_CONFIG[state.weather].emoji} / 市场: ${ENV_CONFIG[state.market].emoji}`);
             saveGame();
-        } else {
-            // Just update UI if needed (countdown?)
-            // updateEnvUI();
         }
+
+        updateEnvUI();
     }
 
     function updateEnvUI() {
