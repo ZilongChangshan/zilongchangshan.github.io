@@ -726,10 +726,313 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #555;
         }
-    </style>
+
+        /* Weather Visuals */
+        .weather-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50; /* Below UI but above grid if possible, actually needs to be behind everything or specific overlay */
+            /* Actually, let's put it on top of everything with pointer-events: none, but z-index below modals */
+            opacity: 0.3;
+            transition: opacity 1s ease;
+        }
+
+        .weather-rainy {
+            background-image: linear-gradient(to bottom, rgba(0,0,50,0.2), transparent),
+                              url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><text x="0" y="15" font-size="10" fill="white">💧</text></svg>');
+            animation: rainFall 1s linear infinite;
+        }
+
+        .weather-sunny {
+            background: radial-gradient(circle at 50% 20%, rgba(255, 255, 0, 0.2), transparent 70%);
+        }
+
+        .weather-rainbow {
+            background: linear-gradient(45deg, rgba(255,0,0,0.1), rgba(255,165,0,0.1), rgba(255,255,0,0.1), rgba(0,128,0,0.1), rgba(0,0,255,0.1), rgba(75,0,130,0.1), rgba(238,130,238,0.1));
+            animation: rainbowShift 5s ease infinite;
+        }
+
+        @keyframes rainFall {
+            from { background-position: 0 0; }
+            to { background-position: 0 20px; }
+        }
+
+        @keyframes rainbowShift {
+            0% { opacity: 0.2; }
+            50% { opacity: 0.4; }
+            100% { opacity: 0.2; }
+        }
+
+
+        /* Storage Tab Styles */
+        .storage-tab-content {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .storage-header {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            background-color: rgba(0,0,0,0.2);
+        }
+
+        .storage-total-value {
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .storage-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .storage-item {
+            display: flex;
+            align-items: center;
+            background-color: var(--card-bg);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .storage-icon {
+            font-size: 1.5rem;
+            width: 40px;
+            text-align: center;
+        }
+
+        .storage-info {
+            flex-grow: 1;
+        }
+
+        .storage-name {
+            font-weight: bold;
+            font-size: 0.9rem;
+            display: block;
+        }
+
+        .storage-qty {
+            font-size: 0.8rem;
+            color: #aaa;
+        }
+
+        .storage-price {
+            text-align: right;
+            margin-right: 10px;
+            min-width: 60px;
+        }
+
+        .price-val {
+            font-weight: bold;
+            display: block;
+        }
+
+        .price-trend {
+            font-size: 0.7rem;
+        }
+        .trend-up { color: #4CAF50; }
+        .trend-down { color: #f44336; }
+        .trend-flat { color: #aaa; }
+
+        .storage-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .sell-btn {
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .sell-all-btn {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+            color: #fff;
+        }
+
+        .sell-global-btn {
+            width: 100%;
+            padding: 15px;
+            background-color: var(--accent-color);
+            color: #fff;
+            border: none;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+        }
+
+
+/* Pet Adventures Tab Styles */
+.pet-status-panel {
+    background-color: var(--card-bg);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border: 1px solid var(--border-color);
+}
+
+.pet-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.pet-avatar {
+    width: 60px;
+    height: 60px;
+    background-color: #333;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    border: 2px solid var(--accent-color);
+}
+
+.pet-info h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-color);
+}
+
+.pet-info p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.status-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.status-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.status-label {
+    width: 60px;
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+.status-track {
+    flex-grow: 1;
+    height: 8px;
+    background-color: #333;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.status-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.energy-fill { background-color: #FF9800; }
+.mood-fill { background-color: #E91E63; }
+
+.adventure-area {
+    background-color: var(--card-bg);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid var(--border-color);
+    margin-bottom: 15px;
+}
+
+.adventure-timer {
+    font-size: 2rem;
+    font-weight: bold;
+    font-family: monospace;
+    margin: 15px 0;
+    color: var(--text-color);
+}
+
+.adventure-btn {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.adventure-btn:disabled {
+    background-color: #333;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.adventure-log {
+    background-color: var(--card-bg);
+    border-radius: 8px;
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.log-title {
+    font-size: 0.9rem;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #aaa;
+    border-bottom: 1px solid #333;
+    padding-bottom: 5px;
+}
+
+.log-item {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #333;
+    font-size: 0.85rem;
+}
+
+.log-icon {
+    font-size: 1.2rem;
+}
+
+.log-content {
+    flex-grow: 1;
+}
+
+.log-time {
+    font-size: 0.7rem;
+    color: #666;
+    display: block;
+    margin-top: 2px;
+}
+</style>
 </head>
 <body>
     <div class="app-container">
+        <div id="weather-overlay" class="weather-overlay"></div>
         <!-- Top Header -->
         <header class="top-bar">
             <div class="level-info">
@@ -773,6 +1076,8 @@
                 <button class="tab-btn active" data-tab="shop">商店</button>
                 <button class="tab-btn" data-tab="stats">统计</button>
                 <button class="tab-btn" data-tab="achievements">成就</button>
+                <button class="tab-btn" data-tab="storage">仓库</button>
+                <button class="tab-btn" data-tab="pet">宠物</button>
             </div>
 
             <!-- Tab Content -->
@@ -799,6 +1104,72 @@
                 <div id="achievements-tab" class="tab-pane">
                     <p>暂无成就</p>
                 </div>
+
+                <!-- Storage Tab -->
+                <div id="storage-tab" class="tab-pane">
+                    <div class="storage-header">
+                        <h3>我的仓库</h3>
+                        <div class="storage-total-value">预估总价值: <span id="storage-total-val" style="color: gold;">0</span> 💰</div>
+                    </div>
+                    <div id="storage-list" class="storage-list">
+                        <!-- Items go here -->
+                        <p style="text-align:center; color:#666; margin-top:20px;">仓库是空的</p>
+                    </div>
+                    <button id="sell-all-global-btn" class="sell-global-btn">💰 一键卖出所有 (0)</button>
+                </div>
+
+
+                <!-- Pet Tab -->
+                <div id="pet-tab" class="tab-pane">
+                    <div id="pet-unlock-msg" style="display:none; text-align:center; padding:20px; color:#888;">
+                        <div style="font-size:3rem; margin-bottom:10px;">🔒</div>
+                        <p>你需要先购买一只看门狗！</p>
+                        <p style="font-size:0.8rem; margin-top:5px;">去商店看看吧 🐕</p>
+                    </div>
+
+                    <div id="pet-content" style="display:none; height:100%; flex-direction:column;">
+                        <div class="pet-panel">
+                            <div class="pet-header">
+                                <div class="pet-avatar">🐕</div>
+                                <div class="pet-info">
+                                    <h3>旺财 (Lv.<span id="pet-level">1</span>)</h3>
+                                    <p>忠诚的伙伴</p>
+                                </div>
+                            </div>
+                            <div class="status-bars">
+                                <div class="status-row">
+                                    <span class="status-label">⚡ 体力</span>
+                                    <div class="status-track">
+                                        <div id="pet-energy-fill" class="status-fill energy-fill" style="width: 100%;"></div>
+                                    </div>
+                                    <span id="pet-energy-text">100/100</span>
+                                </div>
+                                <div class="status-row">
+                                    <span class="status-label">❤️ 心情</span>
+                                    <div class="status-track">
+                                        <div id="pet-mood-fill" class="status-fill mood-fill" style="width: 100%;"></div>
+                                    </div>
+                                    <span id="pet-mood-text">100%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="adventure-area">
+                            <div id="adventure-status" class="adventure-status">准备出发</div>
+                            <div id="adventure-timer" class="adventure-timer">--:--</div>
+                            <button id="adventure-btn" class="adventure-btn">🌲 开始探险 (消耗 20 ⚡)</button>
+                        </div>
+
+                        <div class="log-container">
+                            <div class="log-header">📜 探险日志</div>
+                            <ul id="adventure-log" class="log-list">
+                                <!-- Log items -->
+                                <li class="log-item" style="color:#666; justify-content:center;">暂无记录</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>

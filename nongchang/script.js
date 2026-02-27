@@ -10,7 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
         pumpkin: { id: 'pumpkin', name: '南瓜', emoji: '🎃', seedEmoji: '🌱', cost: 500, sellPrice: 1000, growthTime: 90000, exp: 50, minLevel: 8 },
         sunflower: { id: 'sunflower', name: '向日葵', emoji: '🌻', seedEmoji: '🌱', cost: 1000, sellPrice: 2500, growthTime: 300000, exp: 100, minLevel: 10 },
         grapes: { id: 'grapes', name: '葡萄', emoji: '🍇', seedEmoji: '🌱', cost: 2000, sellPrice: 4500, growthTime: 120000, exp: 80, minLevel: 12 },
-        melon: { id: 'melon', name: '甜瓜', emoji: '🍈', seedEmoji: '🌱', cost: 5000, sellPrice: 12000, growthTime: 300000, exp: 200, minLevel: 15 }
+        melon: { id: 'melon', name: '甜瓜', emoji: '🍈', seedEmoji: '🌱', cost: 5000, sellPrice: 12000, growthTime: 300000, exp: 200, minLevel: 15 },
+        clover: { id: 'clover', name: '幸运草', emoji: '🍀', seedEmoji: '🌱', cost: 300, sellPrice: 10, growthTime: 60000, exp: 50, minLevel: 5, desc: '低售价，高几率掉落宝物' },
+        magic_bean: { id: 'magic_bean', name: '魔豆', emoji: '🫘', seedEmoji: '✨', cost: 10000, sellPrice: 0, growthTime: 600000, exp: 5000, minLevel: 20, desc: '不值钱，但蕴含巨量经验' }
     };
 
     const ITEMS = {
@@ -36,6 +38,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Game State
     let state = {
         gold: 100,
+        storage: {}, // cropId -> quantity
+
+        pet: {
+            unlocked: false,
+            energy: 100,
+            mood: 100,
+            level: 1,
+            exp: 0,
+            adventureEndTime: 0,
+            adventureStatus: 'idle', // 'idle', 'exploring'
+            logs: []
+        },
         startTime: Date.now(),
         lastSaveTime: Date.now(),
         level: 1,
@@ -84,9 +98,29 @@ document.addEventListener('DOMContentLoaded', () => {
         shopTabs: document.querySelectorAll('.secondary-tab-btn'),
         weatherDisplay: document.getElementById('weather-display'), // New
         marketDisplay: document.getElementById('market-display'),   // New
+        weatherOverlay: document.getElementById('weather-overlay'),
         toast: document.getElementById('message-toast'),
         statsTab: document.getElementById('stats-tab'),
         achievementsTab: document.getElementById('achievements-tab'),
+
+        petTab: document.getElementById('pet-tab'),
+        petContent: document.getElementById('pet-content'),
+        petUnlockMsg: document.getElementById('pet-unlock-msg'),
+        petEnergyFill: document.getElementById('pet-energy-fill'),
+        petMoodFill: document.getElementById('pet-mood-fill'),
+        petEnergyText: document.getElementById('pet-energy-text'),
+        petMoodText: document.getElementById('pet-mood-text'),
+        adventureStatus: document.getElementById('adventure-status'),
+        adventureTimer: document.getElementById('adventure-timer'),
+        adventureBtn: document.getElementById('adventure-btn'),
+        adventureLog: document.getElementById('adventure-log'),
+
+        storageTab: document.getElementById('storage-tab'),
+        storageList: document.getElementById('storage-list'),
+        storageTotalVal: document.getElementById('storage-total-val'),
+        sellAllGlobalBtn: document.getElementById('sell-all-global-btn'),
+
+
         modal: document.getElementById('plot-modal'),
         backdrop: document.getElementById('modal-backdrop'),
         modalContent: {
@@ -171,6 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatsUI();
         setupTabs();
         setupShopTabs();
+        initPetUI();
         startLoop();
 
         // Select initial item
@@ -258,6 +293,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (tabName === 'stats') renderStats();
                 if (tabName === 'achievements') renderAchievements();
+                if (tabName === 'pet') updatePetUI();
+                if (tabName === 'storage') updateStorageUI();
             });
         });
     }
@@ -483,27 +520,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Core Gameplay Modifications
-    function harvestCrop(index) {
+        function harvestCrop(index) {
         if (navigator.vibrate) navigator.vibrate(50);
         const plot = state.plots[index];
         const crop = CROPS[plot.cropId];
 
-        // Base Gains
-        let goldGain = crop.sellPrice;
-        let expGain = crop.exp;
-
-        // Market Effects
-        if (state.market === 'boom') goldGain = Math.floor(goldGain * 1.5);
-        if (state.market === 'crash') goldGain = Math.floor(goldGain * 0.8);
-
-        // Weather Effects (Rainbow doubles gold)
-        if (state.weather === 'rainbow') goldGain *= 2;
+        // Events & Bonus Gold (Direct)
+        let bonusGold = 0;
 
         // Random Event: Golden Crop (5% chance)
         let isGolden = Math.random() < 0.05;
         if (isGolden) {
-            goldGain *= 2;
-            showToast("✨ 发现金灿灿的作物！收益翻倍！");
+            bonusGold += crop.sellPrice; // Bonus equal to base price
+            showToast("✨ 发现金灿灿的作物！获得额外金币奖励！");
         }
 
         // Combo Logic
@@ -516,19 +545,37 @@ document.addEventListener('DOMContentLoaded', () => {
         state.lastHarvestTime = now;
 
         if (state.combo >= 5) {
-            const comboBonus = Math.floor(goldGain * 0.1 * Math.min(state.combo, 20)); // Max 200% bonus cap
-            goldGain += comboBonus;
-            showFloatingText(index, `Combo x${state.combo}!`, 'purple');
+            const comboBonus = Math.floor(crop.sellPrice * 0.1 * Math.min(state.combo, 20));
+            bonusGold += comboBonus;
+            showFloatingText(index, 'COMB!', 'purple');
         }
 
-        state.gold += goldGain;
-        state.exp += expGain;
+        // Special Crop Effects
+        if (crop.id === 'clover') {
+            if (Math.random() < 0.3) {
+                bonusGold += 500;
+                showToast('🍀 幸运草带来了额外的好运! (+500 💰)');
+            }
+        }
+        if (crop.id === 'magic_bean') {
+             if (Math.random() < 0.01) {
+                 bonusGold += 100000;
+                 showToast('🫘 魔豆通往了巨人的宝库! (+10w 💰)');
+             }
+        }
 
-        // Update Stats
+        // Apply Results
+        addToStorage(crop.id, 1);
+        if (bonusGold > 0) {
+            state.gold += bonusGold;
+            state.stats.totalGold += bonusGold;
+            showFloatingText(index, '+' + bonusGold, 'gold');
+        } else {
+            showFloatingText(index, '+' + crop.exp + ' Exp', 'white');
+        }
+
+        state.exp += crop.exp;
         state.stats.cropsHarvested++;
-        state.stats.totalGold += goldGain;
-
-        showFloatingText(index, `+${goldGain}${isGolden ? '✨' : ''}`, isGolden ? 'yellow' : 'gold');
 
         plot.status = 'empty';
         plot.cropId = null;
@@ -541,18 +588,18 @@ document.addEventListener('DOMContentLoaded', () => {
         saveGame();
     }
 
-    function harvestAll() {
+        function harvestAll() {
         let harvestedCount = 0;
-        let totalGain = 0;
 
         state.plots.forEach((plot, index) => {
             if (plot.unlocked && plot.status === 'ready') {
                 const crop = CROPS[plot.cropId];
-                state.gold += crop.sellPrice;
+
+                // Simplified harvest all logic (no combos/events for bulk for simplicity, or we add them?)
+                // Let's keep it simple: just storage + exp
+                addToStorage(crop.id, 1);
                 state.exp += crop.exp;
                 state.stats.cropsHarvested++;
-                state.stats.totalGold += crop.sellPrice;
-                totalGain += crop.sellPrice;
 
                 plot.status = 'empty';
                 plot.cropId = null;
@@ -565,7 +612,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (harvestedCount > 0) {
             if (navigator.vibrate) navigator.vibrate(100);
-            showToast(`一键收获: ${harvestedCount} 个作物, 获得 ${totalGain} 💰`);
+            showToast('全部收获完成！');
             checkLevelUp();
             checkAchievements();
             updateStatsUI();
@@ -1098,6 +1145,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // Check Environment
             updateEnvironment();
 
+
+            // Pet Regen & Update
+            regenPet();
+            if (document.getElementById('pet-tab').classList.contains('active')) {
+                updatePetUI();
+            }
+
             // Update Modal if open
             if (state.openModalIndex !== undefined && elements.modal.style.display === 'block') {
                 const plot = state.plots[state.openModalIndex];
@@ -1172,6 +1226,317 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }, 100);
+    }
+
+
+    // Pet System
+    const PET_CONFIG = {
+        adventureCost: 20,
+        adventureTime: 180000, // 3 minutes
+        maxEnergy: 100,
+        energyRegen: 1, // per tick (10s)
+        maxLogs: 10
+    };
+
+    function initPetUI() {
+        if (!state.pet) {
+            state.pet = {
+                unlocked: state.hasDog || false,
+                energy: 100,
+                mood: 100,
+                level: 1,
+                exp: 0,
+                adventureEndTime: 0,
+                adventureStatus: 'idle',
+                logs: []
+            };
+        }
+
+        // Sync old boolean
+        if (state.hasDog && !state.pet.unlocked) state.pet.unlocked = true;
+
+        updatePetUI();
+
+        // Bind Adventure Button
+        if (elements.adventureBtn) {
+            elements.adventureBtn.onclick = startAdventure;
+        }
+    }
+
+    function updatePetUI() {
+        if (!elements.petTab) return;
+
+        if (!state.pet.unlocked) {
+            elements.petUnlockMsg.style.display = 'block';
+            elements.petContent.style.display = 'none';
+            return;
+        }
+
+        elements.petUnlockMsg.style.display = 'none';
+        elements.petContent.style.display = 'flex';
+
+        // Energy Bar
+        const energyPercent = (state.pet.energy / PET_CONFIG.maxEnergy) * 100;
+        elements.petEnergyFill.style.width = `${energyPercent}%`;
+        elements.petEnergyText.textContent = `${Math.floor(state.pet.energy)}/${PET_CONFIG.maxEnergy}`;
+
+        // Mood (Placeholder for now)
+        elements.petMoodFill.style.width = `${state.pet.mood}%`;
+
+        // Adventure Status
+        const now = Date.now();
+        if (state.pet.adventureStatus === 'exploring') {
+            const remaining = Math.max(0, state.pet.adventureEndTime - now);
+            if (remaining > 0) {
+                elements.adventureBtn.disabled = true;
+                elements.adventureBtn.textContent = '🐕 探险中...';
+                elements.adventureTimer.textContent = formatTime(remaining);
+                elements.adventureStatus.textContent = '正在森林深处探索...';
+            } else {
+                completeAdventure();
+            }
+        } else {
+            elements.adventureBtn.disabled = state.pet.energy < PET_CONFIG.adventureCost;
+            elements.adventureBtn.textContent = `🌲 开始探险 (消耗 ${PET_CONFIG.adventureCost} ⚡)`;
+            elements.adventureTimer.textContent = '--:--';
+            elements.adventureStatus.textContent = '准备出发';
+        }
+
+        // Render Logs
+        renderAdventureLogs();
+    }
+
+    function startAdventure() {
+        if (state.pet.energy >= PET_CONFIG.adventureCost) {
+            state.pet.energy -= PET_CONFIG.adventureCost;
+            state.pet.adventureStatus = 'exploring';
+            state.pet.adventureEndTime = Date.now() + PET_CONFIG.adventureTime;
+            showToast('🐕 旺财出发去探险了！');
+            updatePetUI();
+            saveGame();
+        } else {
+            showToast('体力不足，休息一会儿吧 💤');
+        }
+    }
+
+    function completeAdventure() {
+        state.pet.adventureStatus = 'idle';
+
+        // Rewards Logic
+        const rewards = [];
+        const roll = Math.random();
+
+        // Gold (Guaranteed)
+        const goldAmt = Math.floor(50 + Math.random() * 100 + (state.level * 10));
+        state.gold += goldAmt;
+        rewards.push({ icon: '💰', text: `获得了 ${goldAmt} 金币` });
+
+        // Rare Item (Chance)
+        if (roll < 0.3) {
+            const fertilizerAmt = Math.floor(Math.random() * 3) + 1;
+            // We don't track inventory count for fertilizer yet, usually buying uses gold directly.
+            // Let's just give gold equivalent or implement inventory later.
+            // For now, let's just give extra gold as "sold found item".
+            // OR unlock a special crop?
+            // Let's give a "Shiny Stone" (Gold)
+            const bonusGold = 500;
+            state.gold += bonusGold;
+            rewards.push({ icon: '💎', text: `发现稀有宝石! (+${bonusGold} 💰)` });
+        } else if (roll < 0.5) {
+             // Experience
+             const expAmt = 50;
+             state.exp += expAmt;
+             rewards.push({ icon: '⭐', text: `获得了 ${expAmt} 经验` });
+        }
+
+        // Log
+        const logEntry = {
+            time: Date.now(),
+            rewards: rewards
+        };
+        state.pet.logs.unshift(logEntry);
+        if (state.pet.logs.length > PET_CONFIG.maxLogs) state.pet.logs.pop();
+
+        showToast('🐕 旺财探险归来！收获满满！');
+        checkLevelUp();
+        updateStatsUI();
+        updatePetUI();
+        saveGame();
+    }
+
+    function renderAdventureLogs() {
+        if (!elements.adventureLog) return;
+        elements.adventureLog.innerHTML = '';
+
+        if (state.pet.logs.length === 0) {
+            elements.adventureLog.innerHTML = '<li class="log-item" style="color:#666; justify-content:center;">暂无记录</li>';
+            return;
+        }
+
+        state.pet.logs.forEach(log => {
+            const li = document.createElement('li');
+            li.className = 'log-item';
+
+            const timeStr = new Date(log.time).toLocaleTimeString();
+
+            let rewardsHtml = '';
+            log.rewards.forEach(r => {
+                rewardsHtml += `<div>${r.icon} ${r.text}</div>`;
+            });
+
+            li.innerHTML = `
+                <div class="log-icon">📍</div>
+                <div class="log-content">
+                    <div class="log-msg">${rewardsHtml}</div>
+                    <span class="log-time">${timeStr}</span>
+                </div>
+            `;
+            elements.adventureLog.appendChild(li);
+        });
+    }
+
+    // Regen Pet Energy
+    function regenPet() {
+        if (state.pet && state.pet.unlocked && state.pet.energy < PET_CONFIG.maxEnergy) {
+            state.pet.energy = Math.min(PET_CONFIG.maxEnergy, state.pet.energy + (PET_CONFIG.energyRegen * 0.5)); // Slower regen
+            // Only update UI if tab is active to save perf?
+            // Actually updatePetUI checks for element existence but not visibility.
+            // Let's just call it.
+            if (currentShopTab === 'pet') updatePetUI(); // Logic reuse: I should track active main tab
+        }
+    }
+
+
+    // Storage System
+    function addToStorage(cropId, qty) {
+        if (!state.storage) state.storage = {};
+        if (!state.storage[cropId]) state.storage[cropId] = 0;
+        state.storage[cropId] += qty;
+        updateStorageUI();
+        saveGame();
+    }
+
+    function renderStorage() {
+        if (!elements.storageList) return;
+        elements.storageList.innerHTML = '';
+
+        let totalVal = 0;
+        let hasItems = false;
+
+        Object.keys(state.storage).forEach(cropId => {
+            const qty = state.storage[cropId];
+            if (qty <= 0) return;
+            hasItems = true;
+
+            const crop = CROPS[cropId];
+            if (!crop) return;
+
+            // Calculate Price
+            let unitPrice = crop.sellPrice;
+            // Apply Market Multiplier
+            if (state.market === 'boom') unitPrice = Math.floor(unitPrice * 1.5);
+            if (state.market === 'crash') unitPrice = Math.floor(unitPrice * 0.8);
+
+            totalVal += unitPrice * qty;
+
+            const item = document.createElement('div');
+            item.className = 'storage-item';
+
+            let trendIcon = '➖';
+            let trendClass = 'trend-flat';
+            if (state.market === 'boom') { trendIcon = '⬆️'; trendClass = 'trend-up'; }
+            if (state.market === 'crash') { trendIcon = '⬇️'; trendClass = 'trend-down'; }
+
+            item.innerHTML = `
+                <div class="storage-icon">${crop.emoji}</div>
+                <div class="storage-info">
+                    <span class="storage-name">${crop.name}</span>
+                    <span class="storage-qty">库存: ${qty}</span>
+                </div>
+                <div class="storage-price">
+                    <span class="price-val">${unitPrice} 💰</span>
+                    <span class="price-trend ${trendClass}">${trendIcon}</span>
+                </div>
+                <div class="storage-actions">
+                    <button class="sell-btn sell-one-btn">卖 1</button>
+                    <button class="sell-btn sell-all-btn">卖全部</button>
+                </div>
+            `;
+
+            // Bind events
+            item.querySelector('.sell-one-btn').onclick = () => sellItem(cropId, 1);
+            item.querySelector('.sell-all-btn').onclick = () => sellItem(cropId, qty);
+
+            elements.storageList.appendChild(item);
+        });
+
+        if (!hasItems) {
+            elements.storageList.innerHTML = '<p style="text-align:center; color:#666; margin-top:20px;">仓库是空的</p>';
+            elements.sellAllGlobalBtn.textContent = '💰 一键卖出所有 (0)';
+            elements.sellAllGlobalBtn.disabled = true;
+            elements.sellAllGlobalBtn.style.opacity = '0.5';
+        } else {
+            elements.storageTotalVal.textContent = totalVal;
+            elements.sellAllGlobalBtn.textContent = `💰 一键卖出所有 (${totalVal})`;
+            elements.sellAllGlobalBtn.disabled = false;
+            elements.sellAllGlobalBtn.style.opacity = '1';
+            elements.sellAllGlobalBtn.onclick = sellAllGlobal;
+        }
+    }
+
+    function updateStorageUI() {
+        // Only render if tab is active to save perf
+        if (elements.storageTab && elements.storageTab.classList.contains('active')) {
+            renderStorage();
+        }
+    }
+
+    function sellItem(cropId, qty) {
+        if (!state.storage[cropId] || state.storage[cropId] < qty) return;
+
+        const crop = CROPS[cropId];
+        let unitPrice = crop.sellPrice;
+        if (state.market === 'boom') unitPrice = Math.floor(unitPrice * 1.5);
+        if (state.market === 'crash') unitPrice = Math.floor(unitPrice * 0.8);
+
+        const totalGain = unitPrice * qty;
+
+        state.storage[cropId] -= qty;
+        state.gold += totalGain;
+        state.stats.totalGold += totalGain; // Track earnings on sell
+
+        showToast(`卖出 ${qty} 个 ${crop.name}, 获得 ${totalGain} 💰`);
+        updateStatsUI();
+        updateStorageUI();
+        saveGame();
+    }
+
+    function sellAllGlobal() {
+        let totalGain = 0;
+        let count = 0;
+
+        Object.keys(state.storage).forEach(cropId => {
+            const qty = state.storage[cropId];
+            if (qty > 0) {
+                const crop = CROPS[cropId];
+                let unitPrice = crop.sellPrice;
+                if (state.market === 'boom') unitPrice = Math.floor(unitPrice * 1.5);
+                if (state.market === 'crash') unitPrice = Math.floor(unitPrice * 0.8);
+
+                totalGain += unitPrice * qty;
+                state.storage[cropId] = 0;
+                count += qty;
+            }
+        });
+
+        if (count > 0) {
+            state.gold += totalGain;
+            state.stats.totalGold += totalGain;
+            showToast(`一键卖出 ${count} 个物品, 获得 ${totalGain} 💰`);
+            updateStatsUI();
+            updateStorageUI();
+            saveGame();
+        }
     }
 
     init();
