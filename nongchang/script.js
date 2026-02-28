@@ -16,6 +16,24 @@ document.addEventListener('DOMContentLoaded', () => {
         melon: { id: 'melon', name: '甜瓜', emoji: '🍈', seedEmoji: '🌱', cost: 5000, sellPrice: 12000, growthTime: 300000, exp: 200, minLevel: 15 },
         clover: { id: 'clover', name: '幸运草', emoji: '🍀', seedEmoji: '🌱', cost: 300, sellPrice: 10, growthTime: 60000, exp: 50, minLevel: 5, desc: '低售价，高几率掉落宝物' },
         magic_bean: { id: 'magic_bean', name: '魔豆', emoji: '🫘', seedEmoji: '✨', cost: 10000, sellPrice: 0, growthTime: 600000, exp: 5000, minLevel: 20, desc: '不值钱，但蕴含巨量经验' }
+    ,
+        apple_tree: { id: 'apple_tree', name: '苹果树', emoji: '🍎', seedEmoji: '🌳', cost: 2000, sellPrice: 500, growthTime: 180000, exp: 100, minLevel: 10, desc: '多次收获，无需重种', isTree: true }
+    };
+
+
+
+    const PRODUCTS = {
+        bread: { id: 'bread', name: '面包', emoji: '🍞', sellPrice: 60, exp: 15, craftTime: 10000 },
+        fries: { id: 'fries', name: '薯条', emoji: '🍟', sellPrice: 200, exp: 40, craftTime: 20000 },
+        ketchup: { id: 'ketchup', name: '番茄酱', emoji: '🥫', sellPrice: 400, exp: 80, craftTime: 30000 },
+        wine: { id: 'wine', name: '葡萄酒', emoji: '🍷', sellPrice: 10000, exp: 500, craftTime: 120000 }
+    };
+
+    const RECIPES = {
+        bread: { wheat: 3 },
+        fries: { potato: 2 },
+        ketchup: { tomato: 2 },
+        wine: { grapes: 2 }
     };
 
     const ITEMS = {
@@ -43,7 +61,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let state = {
         gold: 100,
         storage: {},
-        orders: [], // cropId -> quantity
+        orders: [],
+        factory: [], // list of active crafting tasks // cropId -> quantity
 
         pet: {
             unlocked: false,
@@ -303,6 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (tabName === 'achievements') renderAchievements();
                 if (tabName === 'pet') updatePetUI();
                 if (tabName === 'storage') { updateStorageUI(); updateOrdersUI(); }
+                if (tabName === 'factory') updateFactoryUI();
             });
         });
     }
@@ -611,9 +631,16 @@ document.addEventListener('DOMContentLoaded', () => {
         state.exp += crop.exp;
         state.stats.cropsHarvested++;
 
-        plot.status = 'empty';
-        plot.cropId = null;
-        plot.plantTime = 0;
+
+        if (crop.isTree) {
+            plot.status = 'growing';
+            plot.plantTime = Date.now();
+        } else {
+            plot.status = 'empty';
+            plot.cropId = null;
+            plot.plantTime = 0;
+        }
+
 
         checkLevelUp();
         checkAchievements();
@@ -635,9 +662,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.exp += crop.exp;
                 state.stats.cropsHarvested++;
 
-                plot.status = 'empty';
-                plot.cropId = null;
-                plot.plantTime = 0;
+
+        if (crop.isTree) {
+            plot.status = 'growing';
+            plot.plantTime = Date.now();
+        } else {
+            plot.status = 'empty';
+            plot.cropId = null;
+            plot.plantTime = 0;
+        }
+
 
                 updatePlotUI(index);
                 harvestedCount++;
@@ -1185,6 +1219,34 @@ document.addEventListener('DOMContentLoaded', () => {
     function startLoop() {
         setInterval(() => {
             const now = Date.now();
+            // Process Factory Queue
+            if (state.factory && state.factory.length > 0) {
+                const task = state.factory[0]; // Process one at a time sequentially
+                const elapsed = now - task.startTime;
+
+                if (elapsed >= task.duration) {
+                    addToStorage(task.productId, task.qty);
+                    state.exp += task.exp * task.qty;
+
+                    showToast(`👨‍🍳 加工完成: ${task.name} x${task.qty}`);
+                    if (navigator.vibrate) navigator.vibrate(50);
+
+                    state.factory.shift(); // Remove completed task
+
+                    if (state.factory.length > 0) {
+                        state.factory[0].startTime = Date.now(); // Start next task
+                    }
+
+                    checkLevelUp();
+                    updateStatsUI();
+                    updateStorageUI();
+                    updateFactoryUI();
+                    saveGame();
+                } else {
+                    updateFactoryUI(); // Update progress bar
+                }
+            }
+
 
             // Check Environment
             updateEnvironment();
@@ -1725,6 +1787,144 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+
+
+
+    // --- Factory System ---
+    function renderFactory() {
+        const recipeList = document.getElementById('recipe-list');
+        if (!recipeList) return;
+
+        recipeList.innerHTML = '';
+
+        Object.values(PRODUCTS).forEach(prod => {
+            const recipe = RECIPES[prod.id];
+
+            // Check if player has enough materials
+            let canCraft = true;
+            let reqHtml = '';
+            for (const [matId, reqQty] of Object.entries(recipe)) {
+                const matQty = state.storage[matId] || 0;
+                if (matQty < reqQty) canCraft = false;
+
+                const crop = CROPS[matId];
+                reqHtml += `<span style="color:${matQty >= reqQty ? '#4CAF50' : '#ff4444'}; margin-right:8px;">${crop.emoji} ${matQty}/${reqQty}</span>`;
+            }
+
+            const item = document.createElement('div');
+            item.className = 'shop-item';
+            item.style.marginBottom = '8px';
+
+            item.innerHTML = `
+                <div class="shop-icon" style="font-size:1.8rem;">${prod.emoji}</div>
+                <div class="shop-info">
+                    <div style="display:flex; justify-content:space-between;">
+                        <span class="shop-name">${prod.name} <span style="font-size:0.7rem; color:#FFD700; margin-left:5px;">${prod.sellPrice}💰</span></span>
+                        <span style="font-size:0.75rem; color:#aaa;">⏳${prod.craftTime / 1000}s</span>
+                    </div>
+                    <div style="font-size:0.75rem; margin-top:2px;">
+                        需求: ${reqHtml}
+                    </div>
+                </div>
+                <button class="action-btn" style="width:auto; padding:6px 12px; margin-left:10px; background-color:${canCraft ? '#2196F3' : '#555'};" ${canCraft ? '' : 'disabled'}>
+                    加工
+                </button>
+            `;
+
+            if (canCraft) {
+                item.querySelector('button').onclick = () => startCrafting(prod.id);
+            } else {
+                item.style.opacity = '0.7';
+            }
+
+            recipeList.appendChild(item);
+        });
+    }
+
+    function startCrafting(productId) {
+        const prod = PRODUCTS[productId];
+        const recipe = RECIPES[productId];
+
+        // Deduct materials
+        for (const [matId, reqQty] of Object.entries(recipe)) {
+            if ((state.storage[matId] || 0) < reqQty) {
+                showToast("材料不足!");
+                return;
+            }
+        }
+
+        for (const [matId, reqQty] of Object.entries(recipe)) {
+            state.storage[matId] -= reqQty;
+        }
+
+        // Add to queue
+        const task = {
+            id: Date.now() + Math.random(),
+            productId: productId,
+            name: prod.name,
+            emoji: prod.emoji,
+            qty: 1,
+            exp: prod.exp,
+            duration: prod.craftTime,
+            startTime: state.factory.length === 0 ? Date.now() : 0 // Start timer only if it's first in queue
+        };
+
+        state.factory.push(task);
+        showToast(`👨‍🍳 开始制作: ${prod.name}`);
+
+        updateStorageUI();
+        updateFactoryUI();
+        saveGame();
+    }
+
+    function updateFactoryUI() {
+        if (!document.getElementById('factory-tab').classList.contains('active')) return;
+
+        renderFactory(); // Update recipe buttons (materials might have changed)
+
+        const queueContainer = document.getElementById('factory-queue');
+        if (!queueContainer) return;
+
+        if (state.factory.length === 0) {
+            queueContainer.innerHTML = '<div style="text-align:center; color:#666; font-size:0.8rem; line-height:40px;">暂无加工任务</div>';
+            return;
+        }
+
+        let html = '';
+        state.factory.forEach((task, index) => {
+            if (index === 0) {
+                // Active task
+                const elapsed = Date.now() - task.startTime;
+                const progress = Math.min(100, (elapsed / task.duration) * 100);
+                const remaining = Math.max(0, Math.ceil((task.duration - elapsed) / 1000));
+
+                html += `
+                    <div style="display:flex; align-items:center; margin-bottom:5px;">
+                        <span style="font-size:1.5rem; margin-right:10px;">${task.emoji}</span>
+                        <div style="flex-grow:1;">
+                            <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:2px;">
+                                <span>制作中: ${task.name}</span>
+                                <span>${remaining}s</span>
+                            </div>
+                            <div style="height:6px; background:#444; border-radius:3px; overflow:hidden;">
+                                <div style="height:100%; width:${progress}%; background:#FF9800; transition:width 0.5s linear;"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Queued tasks
+                html += `
+                    <div style="display:flex; align-items:center; margin-bottom:2px; opacity:0.6;">
+                        <span style="font-size:1.2rem; margin-right:10px;">⏳</span>
+                        <span style="font-size:0.8rem;">等待中: ${task.name}</span>
+                    </div>
+                `;
+            }
+        });
+
+        queueContainer.innerHTML = html;
+    }
 
     init();
 });
