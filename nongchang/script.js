@@ -954,7 +954,9 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.shopItems.innerHTML = '';
 
         if (currentShopTab === 'seeds') {
-            Object.values(CROPS).forEach(crop => {
+            Object.values(CROPS)
+                  .sort((a, b) => a.minLevel - b.minLevel)
+                  .forEach(crop => {
                 const item = createShopItemElement(crop, 'crop');
                 elements.shopItems.appendChild(item);
             });
