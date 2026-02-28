@@ -262,31 +262,69 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+
     function checkOfflineProgress() {
         const now = Date.now();
+        const lastSave = state.lastSaveTime || now;
+        const elapsed = now - lastSave;
+
+        let offlineMsgs = [];
         let readyCount = 0;
 
-        // Check crops that finished while we were away
-        // Logic: if it was 'growing' in save, and now it is ready (time passed > growthTime)
-        // Wait, if it was already 'ready' in save, we don't count it as "newly ready".
-        // But we don't store "wasReadyAtSave". We rely on status.
-        // If status is 'growing', and now it is ready, it finished offline.
-
+        // 1. Crops
         state.plots.forEach(plot => {
             if (plot.status === 'growing') {
                 const crop = CROPS[plot.cropId];
-                if (crop && (now - plot.plantTime >= crop.growthTime)) {
+                if (crop && (now - plot.plantTime >= (plot.growthDuration || crop.growthTime))) {
                     readyCount++;
-                    // We don't change status here, the loop or render will handle it visually,
-                    // but functionally it's ready.
                 }
             }
         });
+        if (readyCount > 0) offlineMsgs.push(`🌾 ${readyCount} 个作物已成熟`);
 
-        if (readyCount > 0) {
+        // 2. Pet Energy
+        if (state.pet && state.pet.unlocked && state.pet.energy < PET_CONFIG.maxEnergy) {
+            const ticks = Math.floor(elapsed / 100); // Because loop runs every 100ms
+            const recovered = (ticks * (PET_CONFIG.energyRegen * 0.5));
+            state.pet.energy = Math.min(PET_CONFIG.maxEnergy, state.pet.energy + recovered);
+            if (recovered >= 10) offlineMsgs.push(`🐕 旺财恢复了体力`);
+        }
+
+        // 3. Factory Queue (Simulated rapid processing)
+        if (state.factory && state.factory.length > 0) {
+            let remainingOfflineTime = elapsed;
+            let craftedCount = 0;
+
+            while (state.factory.length > 0 && remainingOfflineTime > 0) {
+                const task = state.factory[0];
+                const taskElapsed = now - task.startTime; // Time since task started
+
+                // If the time since the task started is greater than its duration
+                if (taskElapsed >= task.duration) {
+                    addToStorage(task.productId, task.qty);
+                    state.exp += task.exp * task.qty;
+                    craftedCount++;
+
+                    // Deduct the time spent on this task
+                    remainingOfflineTime -= task.duration;
+
+                    state.factory.shift(); // Remove task
+
+                    if (state.factory.length > 0) {
+                        // Next task theoretically started when the previous one finished
+                        state.factory[0].startTime = now - remainingOfflineTime;
+                    }
+                } else {
+                    break; // Current task isn't finished yet
+                }
+            }
+            if (craftedCount > 0) offlineMsgs.push(`👨‍🍳 加工坊完成了 ${craftedCount} 个订单`);
+        }
+
+        if (offlineMsgs.length > 0) {
             setTimeout(() => {
-                showToast(`欢迎回来！离线期间有 ${readyCount} 个作物成熟了 🌾`);
-            }, 500);
+                showToast(`离线收益:\n` + offlineMsgs.join('\n'));
+            }, 1000);
         }
     }
 
@@ -318,11 +356,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 elements.tabPanes.forEach(p => p.classList.remove('active'));
                 document.getElementById(`${tabName}-tab`).classList.add('active');
 
+
                 if (tabName === 'stats') renderStats();
                 if (tabName === 'achievements') renderAchievements();
                 if (tabName === 'pet') updatePetUI();
-                if (tabName === 'storage') { updateStorageUI(); updateOrdersUI(); }
+                if (tabName === 'shop') switchShopTab('seeds');
+                if (tabName === 'storage') switchStorageTab('inventory');
                 if (tabName === 'factory') updateFactoryUI();
+
             });
         });
     }
@@ -649,29 +690,56 @@ document.addEventListener('DOMContentLoaded', () => {
         saveGame();
     }
 
-        function harvestAll() {
+
+    function harvestAll() {
         let harvestedCount = 0;
+        let totalBonusGold = 0;
+        let specialMsgs = [];
 
         state.plots.forEach((plot, index) => {
             if (plot.unlocked && plot.status === 'ready') {
                 const crop = CROPS[plot.cropId];
 
-                // Simplified harvest all logic (no combos/events for bulk for simplicity, or we add them?)
-                // Let's keep it simple: just storage + exp
+                // --- Event Logic from single harvest ---
+                let bonusGold = 0;
+
+                // Golden Crop (5%)
+                if (Math.random() < 0.05) {
+                    bonusGold += crop.sellPrice;
+                    if (harvestedCount === 0) specialMsgs.push("✨ 发现金灿灿的作物！"); // Only add msg once
+                }
+
+                // Special Crops
+                if (crop.id === 'clover' && Math.random() < 0.3) {
+                    bonusGold += 500;
+                    specialMsgs.push('🍀 幸运草好运!');
+                }
+                if (crop.id === 'magic_bean' && Math.random() < 0.01) {
+                    bonusGold += 100000;
+                    specialMsgs.push('🫘 魔豆爆发巨量财富!');
+                }
+
+                // Apply
                 addToStorage(crop.id, 1);
                 state.exp += crop.exp;
                 state.stats.cropsHarvested++;
 
+                if (bonusGold > 0) {
+                    totalBonusGold += bonusGold;
+                    showFloatingText(index, `+${bonusGold}💰`, 'gold');
+                } else {
+                    showFloatingText(index, `+${crop.exp}⭐`, 'white');
+                }
 
-        if (crop.isTree) {
-            plot.status = 'growing';
-            plot.plantTime = Date.now();
-        } else {
-            plot.status = 'empty';
-            plot.cropId = null;
-            plot.plantTime = 0;
-        }
-
+                // Reset or Regrow (Tree Logic)
+                if (crop.isTree) {
+                    plot.status = 'growing';
+                    plot.plantTime = Date.now();
+                } else {
+                    plot.status = 'empty';
+                    plot.cropId = null;
+                    plot.plantTime = 0;
+                }
 
                 updatePlotUI(index);
                 harvestedCount++;
@@ -680,13 +748,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (harvestedCount > 0) {
             if (navigator.vibrate) navigator.vibrate(100);
-            showToast('全部收获完成！');
+
+            if (totalBonusGold > 0) {
+                state.gold += totalBonusGold;
+                state.stats.totalGold += totalBonusGold;
+                showToast(`一键收获 ${harvestedCount} 棵作物. 额外奖励: ${totalBonusGold} 💰\n${specialMsgs.join(' ')}`);
+            } else {
+                showToast(`一键收获了 ${harvestedCount} 棵作物 🌾`);
+            }
+
             checkLevelUp();
             checkAchievements();
             updateStatsUI();
             saveGame();
         } else {
-            showToast("没有可收获的作物");
+            showToast("没有可收获的作物 💤");
         }
     }
 
@@ -1694,6 +1770,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+
+    function rejectOrder(orderId) {
+        const orderIndex = state.orders.findIndex(o => o.id === orderId);
+        if (orderIndex === -1) return;
+
+        state.orders.splice(orderIndex, 1);
+        showToast("🗑️ 订单已拒绝");
+        updateOrdersUI();
+        saveGame();
+    }
+
     function fulfillOrder(orderId) {
         const orderIndex = state.orders.findIndex(o => o.id === orderId);
         if (orderIndex === -1) return;
@@ -1748,14 +1835,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="font-weight:bold; font-size:0.9rem;">${crop.emoji} ${crop.name} x${order.qty}</div>
                     <div style="font-size:0.75rem; color:#aaa;">奖励: <span style="color:#FFD700">${order.reward}💰</span> ⏳${timeLeft}s</div>
                 </div>
-                <button class="action-btn-order" data-id="${order.id}" style="width:auto; padding:4px 8px; font-size:0.8rem; background-color:${hasEnough ? '#4CAF50' : '#555'}; color:white; border:none; border-radius:4px; cursor:pointer;">
-                    ${hasEnough ? '提交' : '缺货'}
-                </button>
+
+                <div style="display:flex; gap:5px;">
+                    <button class="action-btn-reject" data-id="${order.id}" style="padding:4px 8px; font-size:0.8rem; background-color:#ff4444; color:white; border:none; border-radius:4px; cursor:pointer;">
+                        🗑️
+                    </button>
+                    <button class="action-btn-order" data-id="${order.id}" style="width:auto; padding:4px 8px; font-size:0.8rem; background-color:${hasEnough ? '#4CAF50' : '#555'}; color:white; border:none; border-radius:4px; cursor:pointer;" ${hasEnough ? '' : 'disabled'}>
+                        ${hasEnough ? '提交' : '缺货'}
+                    </button>
+                </div>
+
             `;
 
+
+            div.querySelector('.action-btn-reject').onclick = () => rejectOrder(order.id);
             if (hasEnough) {
                 div.querySelector('.action-btn-order').onclick = () => fulfillOrder(order.id);
             }
+
 
             container.appendChild(div);
         });
