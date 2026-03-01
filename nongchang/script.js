@@ -276,6 +276,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (plot.status === 'growing') {
                 const crop = CROPS[plot.cropId];
                 if (crop && (now - plot.plantTime >= (plot.growthDuration || crop.growthTime))) {
+                    plot.status = 'ready';
+                    updatePlotUI(plot.id);
                     readyCount++;
                 }
             }
@@ -766,6 +768,61 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+
+    function fertilizeAll() {
+        if (state.selectedItemId !== 'fertilizer') {
+            showToast("请先选择化肥 ⚡");
+            return;
+        }
+
+        const item = ITEMS['fertilizer'];
+        let fertilizedCount = 0;
+        let totalCost = 0;
+        let plotsToFertilize = [];
+
+        state.plots.forEach((plot, index) => {
+            if (plot.unlocked && plot.status === 'growing') {
+                plotsToFertilize.push(index);
+            }
+        });
+
+        if (plotsToFertilize.length === 0) {
+            showToast("没有正在生长的作物");
+            return;
+        }
+
+        const maxAffordable = Math.floor(state.gold / item.cost);
+        const countToFertilize = Math.min(plotsToFertilize.length, maxAffordable);
+
+        if (countToFertilize === 0) {
+            showToast("金币不足！");
+            return;
+        }
+
+        for (let i = 0; i < countToFertilize; i++) {
+            const index = plotsToFertilize[i];
+            const plot = state.plots[index];
+            const crop = CROPS[plot.cropId];
+
+            state.gold -= item.cost;
+            plot.plantTime = Date.now() - crop.growthTime - 1000;
+            plot.status = 'ready';
+
+            fertilizedCount++;
+            totalCost += item.cost;
+
+            showFloatingText(index, `⚡加速!`, 'yellow');
+            updatePlotUI(index);
+        }
+
+        if (fertilizedCount > 0) {
+            if (navigator.vibrate) navigator.vibrate(50);
+            showToast(`一键施肥: ${fertilizedCount} 个作物, 花费 ${totalCost} 💰`);
+            updateStatsUI();
+            saveGame();
+        }
+    }
+
     function plantAll() {
         if (state.selectedItemType !== 'crop') {
             showToast("请先选择要种植的种子 🌱");
@@ -1053,6 +1110,20 @@ document.addEventListener('DOMContentLoaded', () => {
             toolName.textContent = data.name;
         }
 
+        // Update Action Button Dynamically
+        if (elements.plantAllBtn) {
+            const span = elements.plantAllBtn.querySelector('span');
+            if (type === 'crop') {
+                span.textContent = '一键播种';
+                elements.plantAllBtn.style.backgroundColor = '#2196F3'; // Blue
+                elements.plantAllBtn.onclick = plantAll;
+            } else if (id === 'fertilizer') {
+                span.textContent = '一键施肥';
+                elements.plantAllBtn.style.backgroundColor = '#FF9800'; // Orange
+                elements.plantAllBtn.onclick = fertilizeAll;
+            }
+        }
+
         // Apply Grid Highlighting Modes
         elements.farmGrid.classList.remove('mode-planting', 'mode-fertilizer');
         if (type === 'crop') {
@@ -1237,7 +1308,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 elements.plantAllBtn.style.opacity = '1';
                 elements.plantAllBtn.style.filter = 'none';
-                elements.plantAllBtn.onclick = plantAll;
+                elements.plantAllBtn.onclick = state.selectedItemId === 'fertilizer' ? fertilizeAll : plantAll;
             }
         }
     }
