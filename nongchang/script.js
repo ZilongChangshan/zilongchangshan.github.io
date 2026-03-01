@@ -678,10 +678,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (crop.isTree) {
             plot.status = 'growing';
             plot.plantTime = Date.now();
+                    plot.hasWeeds = false;
+                    plot.hasBugs = false;
+            plot.hasWeeds = false;
+            plot.hasBugs = false;
         } else {
             plot.status = 'empty';
             plot.cropId = null;
             plot.plantTime = 0;
+                    plot.hasWeeds = false;
+                    plot.hasBugs = false;
+            plot.hasWeeds = false;
+            plot.hasBugs = false;
         }
 
 
@@ -737,10 +745,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (crop.isTree) {
                     plot.status = 'growing';
                     plot.plantTime = Date.now();
+                    plot.hasWeeds = false;
+                    plot.hasBugs = false;
+            plot.hasWeeds = false;
+            plot.hasBugs = false;
                 } else {
                     plot.status = 'empty';
                     plot.cropId = null;
                     plot.plantTime = 0;
+                    plot.hasWeeds = false;
+                    plot.hasBugs = false;
+            plot.hasWeeds = false;
+            plot.hasBugs = false;
                 }
 
                 updatePlotUI(index);
@@ -942,10 +958,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusText.textContent = '点击种植';
                 progressBar.style.display = 'none';
             } else if (plot.status === 'growing') {
-                const crop = CROPS[plot.cropId];
-                emojiDiv.textContent = crop ? crop.seedEmoji : '🌱';
+            const crop = CROPS[plot.cropId];
+            emojiDiv.textContent = crop ? crop.seedEmoji : '🌱';
+
+            if (plot.hasWeeds) {
+                statusText.textContent = '🌿 除草';
+                statusText.style.color = '#ff9800';
+                card.style.borderColor = '#ff9800';
+            } else if (plot.hasBugs) {
+                statusText.textContent = '🐛 杀虫';
+                statusText.style.color = '#ff9800';
+                card.style.borderColor = '#ff9800';
+            } else {
                 statusText.textContent = '生长中...';
-            } else if (plot.status === 'ready') {
+                statusText.style.color = '#aaa';
+                card.style.borderColor = '#333';
+            }
+
+            progressBar.style.display = 'block';
+
+            const elapsed = Date.now() - plot.plantTime;
+            const duration = plot.growthDuration || crop.growthTime; // Use correct duration
+            const progress = Math.min(100, (elapsed / duration) * 100);
+            progressFill.style.width = `${progress}%`;
+
+
                 const crop = CROPS[plot.cropId];
                 emojiDiv.textContent = crop ? crop.emoji : '❓';
                 statusText.textContent = '点击收获';
@@ -992,14 +1029,29 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (plot.status === 'growing') {
             const crop = CROPS[plot.cropId];
             emojiDiv.textContent = crop ? crop.seedEmoji : '🌱';
-            statusText.textContent = '生长中...';
+
+            if (plot.hasWeeds) {
+                statusText.textContent = '🌿 除草';
+                statusText.style.color = '#ff9800';
+                card.style.borderColor = '#ff9800';
+            } else if (plot.hasBugs) {
+                statusText.textContent = '🐛 杀虫';
+                statusText.style.color = '#ff9800';
+                card.style.borderColor = '#ff9800';
+            } else {
+                statusText.textContent = '生长中...';
+                statusText.style.color = '#aaa';
+                card.style.borderColor = '#333';
+            }
+
             progressBar.style.display = 'block';
 
             const elapsed = Date.now() - plot.plantTime;
-            const progress = Math.min(100, (elapsed / crop.growthTime) * 100);
+            const duration = plot.growthDuration || crop.growthTime; // Use correct duration
+            const progress = Math.min(100, (elapsed / duration) * 100);
             progressFill.style.width = `${progress}%`;
 
-        } else if (plot.status === 'ready') {
+
             const crop = CROPS[plot.cropId];
             emojiDiv.textContent = crop ? crop.emoji : '❓';
             statusText.textContent = '点击收获';

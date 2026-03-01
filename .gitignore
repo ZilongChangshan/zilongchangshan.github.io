@@ -1,0 +1,5 @@
+verification/
+*.py
+*.log
+*.pyc
+__pycache__/
