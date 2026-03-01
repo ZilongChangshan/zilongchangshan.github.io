@@ -1257,16 +1257,30 @@
     <div id="modal-backdrop" class="modal-backdrop"></div>
 
     <!-- Plot Detail Popover -->
+    <!-- Plot Action Modal -->
     <div id="plot-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="width: 200px;">
             <div class="modal-header">
                 <div id="modal-crop-icon" class="modal-icon">🌱</div>
-                <h2 id="modal-crop-name">作物</h2>
+                <h2 id="modal-crop-name">土地</h2>
             </div>
-            <!-- <div id="modal-status">生长中</div> -->
-            <div class="modal-progress-container">
+
+            <div class="modal-progress-container" id="modal-progress-wrapper" style="display:none;">
                 <div id="modal-progress-bar" class="modal-progress-fill"></div>
             </div>
+            <div id="modal-timer" style="display:none; margin-bottom:8px;">00:00</div>
+
+            <div id="modal-info-text" style="font-size:0.75rem; color:#aaa; margin-bottom:10px;"></div>
+
+            <div class="modal-actions" style="display:flex; flex-direction:column; gap:6px;">
+                <button id="modal-btn-plant" class="action-btn" style="background-color: #2196F3; display:none;">🌱 播种</button>
+                <button id="modal-btn-fertilize" class="action-btn" style="background-color: #FF9800; display:none;">⚡ 施肥</button>
+                <button id="modal-btn-weed" class="action-btn" style="background-color: #4CAF50; display:none;">🌿 除草 (+5⭐)</button>
+                <button id="modal-btn-bug" class="action-btn" style="background-color: #4CAF50; display:none;">🐛 杀虫 (+5⭐)</button>
+                <button id="modal-btn-harvest" class="action-btn" style="background-color: #4CAF50; display:none;">🌾 收获</button>
+            </div>
+        </div>
+    </div>
             <div id="modal-timer">00:00</div>
             <div class="modal-actions">
                 <button id="modal-action-btn" class="action-btn">加速</button>

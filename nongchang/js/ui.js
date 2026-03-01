@@ -48,7 +48,13 @@ export const elements = {
         name: document.getElementById('modal-crop-name'),
         timer: document.getElementById('modal-timer'),
         progress: document.getElementById('modal-progress-bar'),
-        actionBtn: document.getElementById('modal-action-btn')
+        btnPlant: document.getElementById('modal-btn-plant'),
+        btnFertilize: document.getElementById('modal-btn-fertilize'),
+        btnWeed: document.getElementById('modal-btn-weed'),
+        btnBug: document.getElementById('modal-btn-bug'),
+        btnHarvest: document.getElementById('modal-btn-harvest'),
+        progressWrapper: document.getElementById('modal-progress-wrapper'),
+        infoText: document.getElementById('modal-info-text')
     },
     harvestAllBtn: document.getElementById('harvest-all-btn'),
     plantAllBtn: document.getElementById('plant-all-btn'),

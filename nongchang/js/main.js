@@ -11,7 +11,7 @@ import { renderShop, selectShopItem, initShopDeps } from './shop.js';
 import {
     getMaxPlots, getLandCost, harvestCrop, harvestAll,
     plantCrop, plantAll, useFertilizer, fertilizeAll,
-    cleanAll, buyLand, buyDog, buyPetFood, initFarmDeps
+    cleanPlot, cleanAll, buyLand, buyDog, buyPetFood, initFarmDeps
 } from './farm.js';
 import { startLoop, checkOfflineProgress, updateEnvironment, initEngineDeps } from './engine.js';
 
@@ -132,6 +132,134 @@ function updatePlotUI(index) {
     }
 }
 
+
+export function openActionMenu(index) {
+    const plot = state.plots[index];
+    const crop = plot.cropId ? CROPS[plot.cropId] : null;
+
+    elements.modalContent.icon.textContent = crop ? crop.emoji : '🕳️';
+    elements.modalContent.name.textContent = crop ? `${crop.name} (Lv.${plot.level})` : `空土地 (Lv.${plot.level})`;
+
+    // Reset displays
+    elements.modalContent.btnPlant.style.display = 'none';
+    elements.modalContent.btnFertilize.style.display = 'none';
+    elements.modalContent.btnWeed.style.display = 'none';
+    elements.modalContent.btnBug.style.display = 'none';
+    elements.modalContent.btnHarvest.style.display = 'none';
+    elements.modalContent.progressWrapper.style.display = 'none';
+    elements.modalContent.timer.style.display = 'none';
+    elements.modalContent.infoText.innerHTML = '';
+
+    const updateModalData = () => {
+        if (plot.status === 'empty') {
+            if (state.selectedItemType === 'crop') {
+                const seed = CROPS[state.selectedItemId];
+                elements.modalContent.infoText.innerHTML = `装备中: ${seed.name} (消耗: ${seed.cost}💰)`;
+                elements.modalContent.btnPlant.style.display = 'block';
+                elements.modalContent.btnPlant.onclick = () => { plantCrop(index); openActionMenu(index); }; // Re-render modal state
+            } else {
+                elements.modalContent.infoText.innerHTML = '请在商店装备种子';
+            }
+        }
+        else if (plot.status === 'growing') {
+            elements.modalContent.progressWrapper.style.display = 'block';
+            elements.modalContent.timer.style.display = 'block';
+
+            const elapsed = Date.now() - plot.plantTime;
+            const duration = plot.growthDuration || crop.growthTime;
+            const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
+            const progress = Math.min(100, (elapsed / duration) * 100);
+            const totalTime = Math.ceil(duration / 1000);
+
+            elements.modalContent.timer.innerHTML = `
+                <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#ccc;">
+                    <span>${remaining}s / ${totalTime}s</span>
+                </div>
+            `;
+            elements.modalContent.progress.style.width = `${progress}%`;
+
+            if (plot.hasWeeds) {
+                elements.modalContent.btnWeed.style.display = 'block';
+                elements.modalContent.btnWeed.onclick = () => { cleanPlot(index, 'weed'); openActionMenu(index); };
+            } else if (plot.hasBugs) {
+                elements.modalContent.btnBug.style.display = 'block';
+                elements.modalContent.btnBug.onclick = () => { cleanPlot(index, 'bug'); openActionMenu(index); };
+            } else {
+                elements.modalContent.btnFertilize.style.display = 'block';
+                elements.modalContent.btnFertilize.onclick = () => { useFertilizer(index); openActionMenu(index); };
+            }
+        }
+        else if (plot.status === 'ready') {
+            let projectedGold = Math.floor(crop.sellPrice * (state.market === 'boom' ? 1.5 : (state.market === 'crash' ? 0.8 : 1)));
+            if (state.weather === 'rainbow') projectedGold *= 2;
+            elements.modalContent.infoText.innerHTML = `预计收益: <span style="color:#FFD700">${projectedGold}💰</span> <span style="color:#00BCD4">+${crop.exp}⭐</span>`;
+
+            if (plot.hasWeeds) {
+                elements.modalContent.btnWeed.style.display = 'block';
+                elements.modalContent.btnWeed.onclick = () => { cleanPlot(index, 'weed'); openActionMenu(index); };
+            } else if (plot.hasBugs) {
+                elements.modalContent.btnBug.style.display = 'block';
+                elements.modalContent.btnBug.onclick = () => { cleanPlot(index, 'bug'); openActionMenu(index); };
+            } else {
+                elements.modalContent.btnHarvest.style.display = 'block';
+                elements.modalContent.btnHarvest.onclick = () => { harvestCrop(index); closeModal(); };
+            }
+        }
+    };
+
+    updateModalData();
+
+    // Positioning logic (simplified from before)
+    elements.modal.style.opacity = '0';
+    elements.modal.style.display = 'block';
+
+    const modalWidth = elements.modal.offsetWidth;
+    const modalHeight = elements.modal.offsetHeight;
+    const card = elements.farmGrid.children[index];
+    const rect = card.getBoundingClientRect();
+    const windowWidth = window.innerWidth;
+
+    let left = rect.left + (rect.width / 2) - (modalWidth / 2);
+    if (left < 10) left = 10;
+    if (left + modalWidth > windowWidth - 10) left = windowWidth - modalWidth - 10;
+
+    const cardCenterX = rect.left + (rect.width / 2);
+    let arrowLeft = ((cardCenterX - left) / modalWidth) * 100;
+    arrowLeft = Math.max(10, Math.min(90, arrowLeft));
+
+    let top = rect.top - modalHeight - 10;
+    let isTop = true;
+    if (top < 80) {
+        top = rect.bottom + 10;
+        isTop = false;
+    }
+
+    elements.modal.style.left = `${left}px`;
+    elements.modal.style.top = `${top}px`;
+
+    const content = elements.modal.querySelector('.modal-content');
+    content.style.setProperty('--arrow-left', `${arrowLeft}%`);
+
+    if (isTop) {
+        content.classList.remove('arrow-top');
+        content.classList.add('arrow-bottom');
+    } else {
+        content.classList.remove('arrow-bottom');
+        content.classList.add('arrow-top');
+    }
+
+    elements.modal.style.opacity = '1';
+    elements.backdrop.style.display = 'block';
+    state.openModalIndex = index;
+}
+
+export function closeModal() {
+    elements.modal.style.display = 'none';
+    elements.backdrop.style.display = 'none';
+    state.openModalIndex = undefined;
+}
+
+
 function handlePlotClick(index) {
     const plot = state.plots[index];
     if (!plot.unlocked) {
@@ -146,49 +274,8 @@ function handlePlotClick(index) {
         return;
     }
 
-    if (plot.hasWeeds || plot.hasBugs) {
-        let msg = '';
-        if (plot.hasWeeds) {
-            plot.hasWeeds = false;
-            msg = '🌿清理 +5⭐';
-        } else if (plot.hasBugs) {
-            plot.hasBugs = false;
-            msg = '🐛清理 +5⭐';
-        }
-        state.exp += 5;
-        // Float text logic is imported but needs the index, we can just use the generic function
-        const card = elements.farmGrid.children[index];
-        const el = document.createElement('div');
-        el.className = 'floating-text'; el.textContent = msg; el.style.color = '#fff';
-        card.appendChild(el); setTimeout(() => el.remove(), 1000);
-
-        updateStatsUI();
-        checkLevelUp();
-        updatePlotUI(index);
-        saveGame();
-        return;
-    }
-
-    if (plot.status === 'empty') {
-        if (state.selectedItemType === 'crop') {
-            plantCrop(index);
-        } else if (state.selectedItemId === 'dog') {
-            buyDog();
-        } else {
-            showToast("请选择种子进行种植 🌱");
-        }
-    } else if (plot.status === 'ready') {
-        harvestCrop(index);
-    } else if (plot.status === 'growing') {
-        if (state.selectedItemType === 'item' && state.selectedItemId === 'fertilizer') {
-            useFertilizer(index);
-        } else if (state.selectedItemId === 'dog') {
-            buyDog();
-        } else {
-            // openPlotModal logic removed for brevity as it was unused in mobile UX mostly
-            // If we need it, we can bring it back. For now, it's just a click.
-        }
-    }
+    // Always open Action Menu for unlocked plots
+    openActionMenu(index);
 }
 
 function checkLevelUp() {
@@ -284,6 +371,7 @@ function switchStorageTab(tabName) {
 }
 
 function init() {
+    elements.backdrop.onclick = closeModal;
     // Inject dependencies to avoid circular imports
     initFarmDeps(checkLevelUp, renderShop, checkControlButtonsUnlock, updatePlotUI, renderGrid);
     initShopDeps(plantAll, fertilizeAll);

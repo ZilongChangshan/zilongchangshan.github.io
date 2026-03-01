@@ -416,3 +416,19 @@ export function buyPetFood() {
          showToast(`金币不足! (${cost}💰)`);
     }
 }
+
+export function cleanPlot(index, type) {
+    const plot = state.plots[index];
+    if (type === 'weed') {
+        plot.hasWeeds = false;
+        showFloatingText(index, '🌿清理 +5⭐', 'white');
+    } else if (type === 'bug') {
+        plot.hasBugs = false;
+        showFloatingText(index, '🐛清理 +5⭐', 'white');
+    }
+    state.exp += 5;
+    if(_checkLevelUp) _checkLevelUp();
+    updateStatsUI();
+    if(_updatePlotUI) _updatePlotUI(index);
+    saveGame();
+}
