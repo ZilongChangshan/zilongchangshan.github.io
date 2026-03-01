@@ -1604,12 +1604,11 @@ const crop = CROPS[plot.cropId];
             if (Math.random() < 0.01) { // 1% chance per tick to try spawning something
                 const randomIdx = Math.floor(Math.random() * 25);
                 const p = state.plots[randomIdx];
-                if (p.unlocked) {
+                if (p.unlocked && p.status === 'growing') {
                     if (!p.hasWeeds && Math.random() < 0.5) {
                         p.hasWeeds = true;
                         updatePlotUI(randomIdx);
-                    } else if (!p.hasBugs && p.status === 'growing') {
-                        // Bugs only on growing crops
+                    } else if (!p.hasBugs) {
                         p.hasBugs = true;
                         updatePlotUI(randomIdx);
                     }
@@ -1636,7 +1635,18 @@ const crop = CROPS[plot.cropId];
                         plot.status = 'ready';
                         updatePlotUI(index);
                     } else {
-                        updatePlotUI(index);
+                        // Fast path update for progress bar only to save DOM reflows
+                        const card = elements.farmGrid.children[index];
+                        if (card) {
+                            const progressFill = card.querySelector('.plot-progress-fill');
+                            if (progressFill) {
+                                const elapsed = now - plot.plantTime;
+                                const progress = Math.min(100, (elapsed / duration) * 100);
+                                // Only update if significant change (e.g. integer percentage) or just update it
+                                // Browser handles inline style updates better if not recreating text nodes
+                                progressFill.style.width = `${progress}%`;
+                            }
+                        }
                     }
                 }
             });
