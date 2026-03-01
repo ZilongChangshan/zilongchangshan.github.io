@@ -156,7 +156,8 @@ document.addEventListener('DOMContentLoaded', () => {
             actionBtn: document.getElementById('modal-action-btn')
         },
         harvestAllBtn: null,
-        plantAllBtn: null
+        plantAllBtn: null,
+        cleanAllBtn: document.getElementById('clean-all-btn')
     };
 
     const ENV_CONFIG = {
@@ -339,6 +340,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Plant All
+
+        let cBtn = document.getElementById('clean-all-btn');
+        if (cBtn) {
+            cBtn.onclick = cleanAll;
+            elements.cleanAllBtn = cBtn;
+        }
+
         let pBtn = document.getElementById('plant-all-btn');
         if (pBtn) {
             pBtn.onclick = plantAll;
@@ -706,7 +714,15 @@ document.addEventListener('DOMContentLoaded', () => {
         let totalBonusGold = 0;
         let specialMsgs = [];
 
-        state.plots.forEach((plot, index) => {
+
+            let needsCleaning = false;
+            state.plots.forEach(p => { if (p.unlocked && (p.hasWeeds || p.hasBugs)) needsCleaning = true; });
+
+            if (elements.cleanAllBtn) {
+                elements.cleanAllBtn.style.display = (needsCleaning && state.level >= 5) ? 'block' : 'none';
+            }
+
+            state.plots.forEach((plot, index) => {
             if (plot.unlocked && plot.status === 'ready') {
                 const crop = CROPS[plot.cropId];
 
@@ -796,7 +812,15 @@ document.addEventListener('DOMContentLoaded', () => {
         let totalCost = 0;
         let plotsToFertilize = [];
 
-        state.plots.forEach((plot, index) => {
+
+            let needsCleaning = false;
+            state.plots.forEach(p => { if (p.unlocked && (p.hasWeeds || p.hasBugs)) needsCleaning = true; });
+
+            if (elements.cleanAllBtn) {
+                elements.cleanAllBtn.style.display = (needsCleaning && state.level >= 5) ? 'block' : 'none';
+            }
+
+            state.plots.forEach((plot, index) => {
             if (plot.unlocked && plot.status === 'growing') {
                 plotsToFertilize.push(index);
             }
@@ -839,6 +863,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+
+    function cleanAll() {
+        let cleanCount = 0;
+        let gainedExp = 0;
+
+
+            let needsCleaning = false;
+            state.plots.forEach(p => { if (p.unlocked && (p.hasWeeds || p.hasBugs)) needsCleaning = true; });
+
+            if (elements.cleanAllBtn) {
+                elements.cleanAllBtn.style.display = (needsCleaning && state.level >= 5) ? 'block' : 'none';
+            }
+
+            state.plots.forEach((plot, index) => {
+            if (plot.unlocked && (plot.hasWeeds || plot.hasBugs)) {
+                plot.hasWeeds = false;
+                plot.hasBugs = false;
+                cleanCount++;
+                gainedExp += 5;
+                updatePlotUI(index);
+                showFloatingText(index, '+5⭐', 'white');
+            }
+        });
+
+        if (cleanCount > 0) {
+            if (navigator.vibrate) navigator.vibrate(50);
+            state.exp += gainedExp;
+            showToast(`一键清理了 ${cleanCount} 个隐患，获得 ${gainedExp} ⭐`);
+            updateStatsUI();
+            checkLevelUp();
+            saveGame();
+        } else {
+            showToast("没有需要清理的田块 🌟");
+        }
+    }
+
     function plantAll() {
         if (state.selectedItemType !== 'crop') {
             showToast("请先选择要种植的种子 🌱");
@@ -859,7 +919,15 @@ document.addEventListener('DOMContentLoaded', () => {
         let plotsToPlant = [];
 
         // Identify plots
-        state.plots.forEach((plot, index) => {
+
+            let needsCleaning = false;
+            state.plots.forEach(p => { if (p.unlocked && (p.hasWeeds || p.hasBugs)) needsCleaning = true; });
+
+            if (elements.cleanAllBtn) {
+                elements.cleanAllBtn.style.display = (needsCleaning && state.level >= 5) ? 'block' : 'none';
+            }
+
+            state.plots.forEach((plot, index) => {
             if (plot.unlocked && plot.status === 'empty') {
                 plotsToPlant.push(index);
             }
@@ -916,7 +984,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const ownedPlots = state.plots.filter(p => p.unlocked).length;
         const maxPlots = getMaxPlots();
 
-        state.plots.forEach((plot, index) => {
+
+            let needsCleaning = false;
+            state.plots.forEach(p => { if (p.unlocked && (p.hasWeeds || p.hasBugs)) needsCleaning = true; });
+
+            if (elements.cleanAllBtn) {
+                elements.cleanAllBtn.style.display = (needsCleaning && state.level >= 5) ? 'block' : 'none';
+            }
+
+            state.plots.forEach((plot, index) => {
             const card = document.createElement('div');
             card.className = 'plot-card';
             card.dataset.index = index;
@@ -1540,16 +1616,21 @@ const crop = CROPS[plot.cropId];
                 }
             }
 
+
+            let needsCleaning = false;
+            state.plots.forEach(p => { if (p.unlocked && (p.hasWeeds || p.hasBugs)) needsCleaning = true; });
+
+            if (elements.cleanAllBtn) {
+                elements.cleanAllBtn.style.display = (needsCleaning && state.level >= 5) ? 'block' : 'none';
+            }
+
             state.plots.forEach((plot, index) => {
                 if (plot.status === 'growing') {
                     const crop = CROPS[plot.cropId];
                     // Use stored duration or fallback to default
                     const duration = plot.growthDuration || crop.growthTime;
 
-                    // Weeds/Bugs slow down growth
-                    if (plot.hasWeeds || plot.hasBugs) {
-                        plot.plantTime += 100; // Delay by tick interval
-                    }
+
 
                     if (now - plot.plantTime >= duration) {
                         plot.status = 'ready';
