@@ -723,7 +723,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             state.plots.forEach((plot, index) => {
-            if (plot.unlocked && plot.status === 'ready') {
+            if (plot.unlocked && plot.status === 'ready' && !plot.hasWeeds && !plot.hasBugs) {
                 const crop = CROPS[plot.cropId];
 
                 // --- Event Logic from single harvest ---
@@ -1029,44 +1029,48 @@ document.addEventListener('DOMContentLoaded', () => {
             progressFill.className = 'plot-progress-fill';
             progressBar.appendChild(progressFill);
 
+            const crop = plot.cropId ? CROPS[plot.cropId] : null;
+            let isSick = plot.hasWeeds || plot.hasBugs;
+            let sickColor = '#ff9800';
+
             if (plot.status === 'empty') {
                 emojiDiv.textContent = '🕳️';
                 statusText.textContent = '点击种植';
-                progressBar.style.display = 'none';
-            } else if (plot.status === 'growing') {
-            const crop = CROPS[plot.cropId];
-            emojiDiv.textContent = crop ? crop.seedEmoji : '🌱';
-
-            if (plot.hasWeeds) {
-                statusText.textContent = '🌿 除草';
-                statusText.style.color = '#ff9800';
-                card.style.borderColor = '#ff9800';
-            } else if (plot.hasBugs) {
-                statusText.textContent = '🐛 杀虫';
-                statusText.style.color = '#ff9800';
-                card.style.borderColor = '#ff9800';
-            } else {
-                statusText.textContent = '生长中...';
                 statusText.style.color = '#aaa';
                 card.style.borderColor = '#333';
-            }
-
-            progressBar.style.display = 'block';
-
-            const elapsed = Date.now() - plot.plantTime;
-            const duration = plot.growthDuration || crop.growthTime; // Use correct duration
-            const progress = Math.min(100, (elapsed / duration) * 100);
-            progressFill.style.width = `${progress}%`;
-
-
-                } else if (plot.status === 'ready') {
-const crop = CROPS[plot.cropId];
-                emojiDiv.textContent = crop ? crop.emoji : '❓';
-                statusText.textContent = '点击收获';
-                progressFill.style.width = '100%';
                 progressBar.style.display = 'none';
-                statusText.style.color = '#4CAF50';
-                statusText.style.fontWeight = 'bold';
+            } else if (plot.status === 'growing') {
+                emojiDiv.textContent = crop ? crop.seedEmoji : '🌱';
+                progressBar.style.display = 'block';
+
+                const elapsed = Date.now() - plot.plantTime;
+                const duration = plot.growthDuration || (crop ? crop.growthTime : 3000);
+                const progress = Math.min(100, (elapsed / duration) * 100);
+                progressFill.style.width = `${progress}%`;
+
+                if (isSick) {
+                    statusText.textContent = plot.hasWeeds ? '🌿 除草' : '🐛 杀虫';
+                    statusText.style.color = sickColor;
+                    card.style.borderColor = sickColor;
+                } else {
+                    statusText.textContent = '生长中...';
+                    statusText.style.color = '#aaa';
+                    card.style.borderColor = '#333';
+                }
+            } else if (plot.status === 'ready') {
+                emojiDiv.textContent = crop ? crop.emoji : '❓';
+                progressBar.style.display = 'none';
+
+                if (isSick) {
+                    statusText.textContent = plot.hasWeeds ? '🌿 除草' : '🐛 杀虫';
+                    statusText.style.color = sickColor;
+                    card.style.borderColor = sickColor;
+                } else {
+                    statusText.textContent = '点击收获';
+                    statusText.style.color = '#4CAF50';
+                    card.style.borderColor = '#4CAF50';
+                    statusText.style.fontWeight = 'bold';
+                }
             }
 
             card.appendChild(emojiDiv);
@@ -1081,14 +1085,9 @@ const crop = CROPS[plot.cropId];
         const card = elements.farmGrid.children[index];
         if (!card) return;
 
-        if (!plot.unlocked) {
+        if (!plot.unlocked || card.classList.contains('locked')) {
              renderGrid();
              return;
-        } else {
-             if (card.classList.contains('locked')) {
-                 renderGrid();
-                 return;
-             }
         }
 
         const emojiDiv = card.querySelector('.crop-emoji');
@@ -1097,45 +1096,48 @@ const crop = CROPS[plot.cropId];
         const progressFill = card.querySelector('.plot-progress-fill');
         card.dataset.status = plot.status;
 
+        const crop = plot.cropId ? CROPS[plot.cropId] : null;
+        let isSick = plot.hasWeeds || plot.hasBugs;
+        let sickColor = '#ff9800';
+
         if (plot.status === 'empty') {
             emojiDiv.textContent = '🕳️';
             statusText.textContent = '点击种植';
             statusText.style.color = '#aaa';
-            progressBar.style.display = 'none';
             card.style.borderColor = '#333';
+            progressBar.style.display = 'none';
         } else if (plot.status === 'growing') {
-            const crop = CROPS[plot.cropId];
             emojiDiv.textContent = crop ? crop.seedEmoji : '🌱';
+            progressBar.style.display = 'block';
 
-            if (plot.hasWeeds) {
-                statusText.textContent = '🌿 除草';
-                statusText.style.color = '#ff9800';
-                card.style.borderColor = '#ff9800';
-            } else if (plot.hasBugs) {
-                statusText.textContent = '🐛 杀虫';
-                statusText.style.color = '#ff9800';
-                card.style.borderColor = '#ff9800';
+            const elapsed = Date.now() - plot.plantTime;
+            const duration = plot.growthDuration || (crop ? crop.growthTime : 3000);
+            const progress = Math.min(100, (elapsed / duration) * 100);
+            progressFill.style.width = `${progress}%`;
+
+            if (isSick) {
+                statusText.textContent = plot.hasWeeds ? '🌿 除草' : '🐛 杀虫';
+                statusText.style.color = sickColor;
+                card.style.borderColor = sickColor;
             } else {
                 statusText.textContent = '生长中...';
                 statusText.style.color = '#aaa';
                 card.style.borderColor = '#333';
             }
-
-            progressBar.style.display = 'block';
-
-            const elapsed = Date.now() - plot.plantTime;
-            const duration = plot.growthDuration || crop.growthTime; // Use correct duration
-            const progress = Math.min(100, (elapsed / duration) * 100);
-            progressFill.style.width = `${progress}%`;
-
-
-            } else if (plot.status === 'ready') {
-const crop = CROPS[plot.cropId];
+        } else if (plot.status === 'ready') {
             emojiDiv.textContent = crop ? crop.emoji : '❓';
-            statusText.textContent = '点击收获';
-            statusText.style.color = '#4CAF50';
             progressBar.style.display = 'none';
-            card.style.borderColor = '#4CAF50';
+
+            if (isSick) {
+                statusText.textContent = plot.hasWeeds ? '🌿 除草' : '🐛 杀虫';
+                statusText.style.color = sickColor;
+                card.style.borderColor = sickColor;
+            } else {
+                statusText.textContent = '点击收获';
+                statusText.style.color = '#4CAF50';
+                card.style.borderColor = '#4CAF50';
+                statusText.style.fontWeight = 'bold';
+            }
         }
     }
 
@@ -1285,6 +1287,24 @@ const crop = CROPS[plot.cropId];
                 const nextUnlockLevel = (Math.floor((ownedPlots - 6)) + 1) * 3;
                 showToast(`等级不足！需达到 Lv.${nextUnlockLevel} 解锁更多土地`);
             }
+            return;
+        }
+
+        if (plot.hasWeeds || plot.hasBugs) {
+            let msg = '';
+            if (plot.hasWeeds) {
+                plot.hasWeeds = false;
+                msg = '🌿清理 +5⭐';
+            } else if (plot.hasBugs) {
+                plot.hasBugs = false;
+                msg = '🐛清理 +5⭐';
+            }
+            state.exp += 5;
+            showFloatingText(index, msg, 'white');
+            updateStatsUI();
+            checkLevelUp();
+            updatePlotUI(index);
+            saveGame();
             return;
         }
 
