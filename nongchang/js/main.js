@@ -138,7 +138,13 @@ export function openActionMenu(index) {
     const crop = plot.cropId ? CROPS[plot.cropId] : null;
 
     elements.modalContent.icon.textContent = crop ? crop.emoji : '🕳️';
-    elements.modalContent.name.textContent = crop ? `${crop.name} (Lv.${plot.level})` : `空土地 (Lv.${plot.level})`;
+    elements.modalContent.name.textContent = crop ? `${crop.name} (Lv.${plot.level})` : `基础农田 (Lv.${plot.level})`;
+    elements.modalContent.desc.textContent = crop ? `作物` : `空闲中`;
+
+    // Close button logic
+    if (elements.modalContent.closeBtn) {
+        elements.modalContent.closeBtn.onclick = closeModal;
+    }
 
     // Reset displays
     elements.modalContent.btnPlant.style.display = 'none';
@@ -150,8 +156,21 @@ export function openActionMenu(index) {
     elements.modalContent.timer.style.display = 'none';
     elements.modalContent.infoText.innerHTML = '';
 
+    if (elements.modalContent.statsGrid) {
+        elements.modalContent.statsGrid.innerHTML = '';
+    }
+
     const updateModalData = () => {
         if (plot.status === 'empty') {
+            if (elements.modalContent.statsGrid) {
+                elements.modalContent.statsGrid.innerHTML = `
+                    <div><span class="stat-label">状态</span><span class="stat-value" style="color:#aaa;">空闲</span></div>
+                    <div><span class="stat-label">水分</span><span class="stat-value">--</span></div>
+                    <div><span class="stat-label">杂草/虫害</span><span class="stat-value" style="color:#4CAF50;">无</span></div>
+                    <div><span class="stat-label">等级</span><span class="stat-value">Lv.${plot.level}</span></div>
+                `;
+            }
+
             if (state.selectedItemType === 'crop') {
                 const seed = CROPS[state.selectedItemId];
                 elements.modalContent.infoText.innerHTML = `装备中: ${seed.name} (消耗: ${seed.cost}💰)`;
@@ -171,9 +190,19 @@ export function openActionMenu(index) {
             const progress = Math.min(100, (elapsed / duration) * 100);
             const totalTime = Math.ceil(duration / 1000);
 
+            if (elements.modalContent.statsGrid) {
+                const envStatus = (plot.hasWeeds || plot.hasBugs) ? '<span style="color:#f44336;">不良</span>' : '<span style="color:#4CAF50;">良好</span>';
+                elements.modalContent.statsGrid.innerHTML = `
+                    <div><span class="stat-label">状态</span><span class="stat-value" style="color:#2196F3;">生长中</span></div>
+                    <div><span class="stat-label">进度</span><span class="stat-value">${Math.floor(progress)}%</span></div>
+                    <div><span class="stat-label">环境</span><span class="stat-value">${envStatus}</span></div>
+                    <div><span class="stat-label">总时长</span><span class="stat-value">${totalTime}s</span></div>
+                `;
+            }
+
             elements.modalContent.timer.innerHTML = `
                 <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#ccc;">
-                    <span>${remaining}s / ${totalTime}s</span>
+                    <span>剩余: ${remaining}s / ${totalTime}s</span>
                 </div>
             `;
             elements.modalContent.progress.style.width = `${progress}%`;
@@ -192,7 +221,18 @@ export function openActionMenu(index) {
         else if (plot.status === 'ready') {
             let projectedGold = Math.floor(crop.sellPrice * (state.market === 'boom' ? 1.5 : (state.market === 'crash' ? 0.8 : 1)));
             if (state.weather === 'rainbow') projectedGold *= 2;
-            elements.modalContent.infoText.innerHTML = `预计收益: <span style="color:#FFD700">${projectedGold}💰</span> <span style="color:#00BCD4">+${crop.exp}⭐</span>`;
+
+            if (elements.modalContent.statsGrid) {
+                const envStatus = (plot.hasWeeds || plot.hasBugs) ? '<span style="color:#f44336;">影响产量</span>' : '<span style="color:#4CAF50;">完美</span>';
+                elements.modalContent.statsGrid.innerHTML = `
+                    <div><span class="stat-label">状态</span><span class="stat-value" style="color:#FF9800;">成熟</span></div>
+                    <div><span class="stat-label">基础售价</span><span class="stat-value">${crop.sellPrice}💰</span></div>
+                    <div><span class="stat-label">环境</span><span class="stat-value">${envStatus}</span></div>
+                    <div><span class="stat-label">预计收益</span><span class="stat-value" style="color:#FFD700;">${projectedGold}💰</span></div>
+                `;
+            }
+
+            elements.modalContent.infoText.innerHTML = `成熟可收获！ <span style="color:#00BCD4">+${crop.exp}⭐</span>`;
 
             if (plot.hasWeeds) {
                 elements.modalContent.btnWeed.style.display = 'block';

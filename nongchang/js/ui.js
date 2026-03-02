@@ -53,6 +53,9 @@ export const elements = {
         btnWeed: document.getElementById('modal-btn-weed'),
         btnBug: document.getElementById('modal-btn-bug'),
         btnHarvest: document.getElementById('modal-btn-harvest'),
+    desc: document.getElementById('modal-crop-desc'),
+    statsGrid: document.getElementById('modal-stats-grid'),
+    closeBtn: document.getElementById('modal-close-btn'),
         progressWrapper: document.getElementById('modal-progress-wrapper'),
         infoText: document.getElementById('modal-info-text')
     },
